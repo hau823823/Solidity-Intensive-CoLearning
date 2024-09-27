@@ -2,41 +2,6 @@
 timezone: Asia/Shanghai
 ---
 
-> 请在上边的 timezone 添加你的当地时区，这会有助于你的打卡状态的自动化更新，如果没有添加，默认为北京时间 UTC+8 时区
-> 时区请参考以下列表，请移除 # 以后的内容
-
-timezone: Pacific/Honolulu # 夏威夷-阿留申标准时间 (UTC-10)
-
-timezone: America/Anchorage # 阿拉斯加标准时间 (UTC-9)
-
-timezone: America/Los_Angeles # 太平洋标准时间 (UTC-8)
-
-timezone: America/Denver # 山地标准时间 (UTC-7)
-
-timezone: America/Chicago # 中部标准时间 (UTC-6)
-
-timezone: America/New_York # 东部标准时间 (UTC-5)
-
-timezone: America/Halifax # 大西洋标准时间 (UTC-4)
-
-timezone: America/St_Johns # 纽芬兰标准时间 (UTC-3:30)
-
-timezone: Asia/Dubai # 海湾标准时间 (UTC+4)
-
-timezone: Asia/Kolkata # 印度标准时间 (UTC+5:30)
-
-timezone: Asia/Dhaka # 孟加拉国标准时间 (UTC+6)
-
-timezone: Asia/Bangkok # 中南半岛时间 (UTC+7)
-
-timezone: Asia/Shanghai # 中国标准时间 (UTC+8)
-
-timezone: Asia/Tokyo # 日本标准时间 (UTC+9)
-
-timezone: Australia/Sydney # 澳大利亚东部标准时间 (UTC+10)
-
----
-
 # YourName
 
 1. 自我介绍
@@ -52,43 +17,261 @@ timezone: Australia/Sydney # 澳大利亚东部标准时间 (UTC+10)
 ### 2024.09.23
 
 學習內容: 
-- A 系列的 Ethernaut CTF, 之前做了差不多了. POC: [ethernaut-foundry-solutions](https://github.com/SunWeb3Sec/ethernaut-foundry-solutions)
-- A 系列的 QuillAudit CTF 題目的網站關掉了, 幫大家收集了[題目](./Writeup/SunSec/src/QuillCTF/), 不過還是有幾題沒找到. 有找到題目的人可以在發出來.
-- A 系列的 DamnVulnerableDeFi 有持續更新, 題目也不錯. [Damn Vulnerable DeFi](https://github.com/theredguild/damn-vulnerable-defi/tree/v4.0.0).
-- 使用 [Foundry](https://book.getfoundry.sh/) 在本地解題目, 可以參考下面 RoadClosed 為例子
-- ``forge test --match-teat testRoadClosedExploit -vvvv``
-#### [QuillAudit CTF - RoadClosed](./Writeup/SunSec/src/QuillCTF/RoadClosed.sol)
+WTF Academy #1-5
+![1000005316](https://github.com/user-attachments/assets/8a67b9f8-ff71-43a5-bf23-3eefc2545d19)
+
+# 2: enum枚举:uint 分配名稱與維護
+
+# 3: 函數類型：prue/view
+
+# 4: 函數輸出：命名式返回/結構式賦值（读取函数的全部或部分返回值）
+
+# 5: 儲存位置
+1.
+store:狀態變量、上鏈
+memory：參數與臨時變量，內存中不上鏈
+calldata：類memory,不可修改
+
+2. 會影響變量：
+storage->storage
+memory ->memory
+
+3. 作用域：
+
+狀態：鏈上，gas消耗高
+局部：函數執行過程中，內存，完成消失，函數內聲明
+全局：可不聲明，為預留關鍵字
+
+3个常用的全局变量：msg.sender，block.number和msg.data，他们分别代表请求发起地址，当前区块高度，和请求数据。下面是一些常用的全局变量，更完整的列表请看这个链接：
+blockhash(uint blockNumber): (bytes32) 给定区块的哈希值 – 只适用于256最近区块, 不包含当前区块。
+block.coinbase: (address payable) 当前区块矿工的地址
+block.gaslimit: (uint) 当前区块的gaslimit
+block.number: (uint) 当前区块的number
+block.timestamp: (uint) 当前区块的时间戳，为unix纪元以来的秒
+gasleft(): (uint256) 剩余 gas
+msg.data: (bytes calldata) 完整call data
+msg.sender: (address payable) 消息发送者 (当前 caller)
+msg.sig: (bytes4) calldata的前四个字节 (function identifier)
+msg.value: (uint) 当前交易发送的 wei 值
+block.blobbasefee: (uint) 当前区块的blob基础费用。这是Cancun升级新增的全局变量。
+blobhash(uint index): (bytes32) 返回跟当前交易关联的第 index 个blob的版本化哈希（第一个字节为版本号，当前为0x01，后面接KZG承诺的SHA256哈希的最后31个字节）。若当前交易不包含blob，则返回空字节。这是Cancun升级新增的全局变量。
+
+
+4. 乙太單位
+精度表示，以0代替小數點
+wei: 1
+gwei: 1e9 = 1000000000
+ether: 1e18 = 1000000000000000000
+
+5. 時間單位
+
+### 2024.09.24
+學習內容：WTF #6~8
+![image](https://github.com/user-attachments/assets/00a41a16-a6e3-4284-a1e8-7a2c5d1aed52)
+
+# 6:引用類型
+   1. array:
+      1. 固定(內存）：uint[8] array1;
+      3. 可變(動態) ：uint[] array1;
+      4. 例外：
+         1. bytes array7; 不用加［］，叫省gas
+         2. bytes1[] array5; 要加
+      5. 數組創建：
+         1. memory修饰的动态数组，可以用new操作符来创建，但是必须声明长度，并且声明后长度不能改变
+            uint[] memory array8 = new uint[](5);
+         2. 一个值没有指定type的话，会根据上下文推断出元素的类型，默认就是最小单位的type
+             g([uint(1), 2, 3]); -->都是uint
+         3. 數組成員
+               1. memory內存數組:length
+               3. 動態數組:push()最後添加0/push(x)最後添加x/pop()移除最後元素
+   2. struct:定義新類型,可為原始/引用；本身可作為數組or mapping元素 ，struct中不可包含其本身。可含數組/mapping/struct類型
+      1. 四種賦予值方法
+         1.Student storage _student = student; // assign a copy of student
+            _student.id=1;
+         2. 直接引用状态变量的struct
+           student.id=1;
+         3. 構造函數式：student = Student(3, 90);
+         4. key value:student = Student({id: 4, score: 60});
+
+# 7: 映射類型：存key value pair table, hash table
+   1. 格式：mapping(_KeyType => _ValueType)
+         例：mapping(uint => address) public idToAddress; // id映射到地址
+            mapping(address => uint) public balance0f; //记录不同地址的持仓数量
+   3. 注意：
+      1. _KeyType只能選預設類型，無法用自定義結構體，_ValueType則可
+      2. 存储位置必须是storage，可用於合約狀態變量
+      3. 如果映射声明为public，那么Solidity会自动给你创建一个getter函数，可以通过Key来查询对应的Value
+      4. 新增鍵值對：
+         function writeMap (uint _Key, address _Value) public
+         {
+             idToAddress[_Key] = _Value;
+         }
+   4. 原理：
+      1. 不存key資訊，無length資訊
+      2. 使用keccak256(abi.encodePacked(key, slot))作為offset存取value，slot是映射變量定義所在插槽
+      3. 定义所有未使用的空间为0，初始值為默認值
+
+# 8：變量初始值
+      1. 值/引用 類型
+         1. 值：
+            boolean: false
+            string: ""
+            int: 0
+            uint: 0
+            enum: 枚举中的第一个元素
+            address: 0x0000000000000000000000000000000000000000 (或 address(0))
+            function
+            internal: 空白函数
+            external: 空白函数
+
+         2. 引用
+            映射mapping: 所有元素都为其默认值的mapping(即a=>b中b的默認值)
+            结构体struct: 所有成员设为其默认值的结构体
+            数组array
+               动态数组: []
+               静态数组（定长）: 所有成员设为其默认值的静态数组
+               eg:byte1初始值為0x00
+
+      2. delete操作符
+         dalete a; //變量a還原初始值
+
+### 2024.09.25
+
+學習內容：WTF #9-11
+
+![image](https://github.com/user-attachments/assets/57aecb5b-19c1-43d9-b848-4ebfd3c5e4f8)
+
+
+# 9:常數
+   1. constant
+      1. 数值变量可以声明constant和immutable
+      2. string和bytes可以声明为constant，但不能为immutable
+      3.初始化之后，尝试改变它的值，会编译不通过
+      4. 必須聲明時初始化，後不可變
+         ~ uint256 constant CONSTANT_NUM = 10;
+   2. immutable
+      1. 靈活，可在聲明或構造函數時初始化
+      2. Solidity v8.0.21以后，immutable变量不需要显式初始化。反之，则需要显式初始化。
+      3.初始化之后，尝试改变它的值，会编译不通过
+      4. immutable變量同時在聲明和constructor中初始化-->使用constructor初始化值
+         ```
+         constructor()
+         {
+            IMMUTABLE_ADDRESS = address(this);
+            IMMUTABLE_NUM = 1118;
+            IMMUTABLE_TEST = test();
+         }
+         ```
+
+# 10:控制流
+   https://www.wtf.academy/docs/solidity-101/InsertionSort
+   1. if-else
+   2. for
+   3. while
+   4. do-while
+   5. 三元運算符：条件? 条件为真的表达式:条件为假的表达式
+   6. continue/break
+   7. 插入排序
 ```
-  function addToWhitelist(address addr) public {
-    require(!isContract(addr), "Contracts are not allowed");
-    whitelistedMinters[addr] = true;
-  }
-
-  function changeOwner(address addr) public {
-    require(whitelistedMinters[addr], "You are not whitelisted");
-    require(msg.sender == addr, "address must be msg.sender");
-    require(addr != address(0), "Zero address");
-    owner = addr;
-  }
-
-  function pwn(address addr) external payable {
-    require(!isContract(msg.sender), "Contracts are not allowed");
-    require(msg.sender == addr, "address must be msg.sender");
-    require(msg.sender == owner, "Must be owner");
-    hacked = true;
-  }
-
-  function pwn() external payable {
-    require(msg.sender == pwner);
-    hacked = true;
-  }
+               // 插入排序 正确版
+         function insertionSort(uint[] memory a) public pure returns(uint[] memory) {
+             // note that uint can not take negative value
+             for (uint i = 1;i < a.length;i++){
+                 uint temp = a[i];
+                 uint j=i;
+                 while( (j >= 1) && (temp < a[j-1])){
+                     a[j] = a[j-1];
+                     j--;
+                 }
+                 a[j] = temp;
+             }
+             return(a);
+         }
 ```
-- 解決這個題目需要成為合約的 owner 和 hacked = true.
-- On-chain: 可以透過 ``cast send`` 或是 forge script 來解.
-- Local: 透過 forge test 通常是在local解題, 方便 debug.
-- RoadClosed 為例子我寫了2個解題方式. testRoadClosedExploit 和 testRoadClosedContractExploit (因為題目有檢查msg.sender是不是合約, 所以可以透過constructor來繞過 isContract)
-- [POC](./Writeup/SunSec/test/QuillCTF/RoadClosed.t.sol) 
+notice: 
+   - line178: uint j=i;
+   - line179-180: uint j >= 1   &   a[j] = a[j-1];
 
-### 
+
+# 11:構造函數和修飾器
+   1. constructor
+         1. 每个合约可以定义一个，在部署合约的时候自动运行一次
+         2. 可以用来初始化合约的一些参数，如owner地址
+            ```
+            constructor(address initialOwner)
+            {
+                owner = initialOwner; // 在部署合约的时候，将owner设置为传入的initialOwner地址
+            //舊寫法 Parents
+            }
+            ```
+   2. modifier：运行函数前的检查，例如地址，变量，余额
+      ```
+         modifier onlyOwner
+          {
+               require(msg.sender == owner); // 检查调用者是否为owner地址
+               _; // 如果是的话，继续运行函数主体；否则报错并revert交易
+               //onlyOwner修饰符的函数只能被owner地址调用
+          }
+
+         function changeOwner(address _newOwner) external onlyOwner
+               {
+                  owner = _newOwner; // 只有owner地址运行这个函数，并改变owner
+               }
+      ```
+OpenZeppelin是一个维护Solidity标准化代码库的组织，他的Ownable标准实现如下： https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
+
+
+### 2024.09.26
+
+學習內容：WTF #12 (今天比較忙ＱＱ)
+![image](https://github.com/user-attachments/assets/8cc42e19-bbc5-49eb-bc9f-86ad44b65ee4)
+
+
+# 12:事件
+
+   1. 应用程序（ethers.js）可以通过RPC接口订阅和监听这些事件，并在前端做响应
+   2. 每個只消耗200gas, 較鏈上新變量少（20000gas）
+   3. 聲明：ERC20 Transfer
+        event Transfer(address indexed from, address indexed to, uint256 value);
+        3个变量from，to和value
+        from和to前面带有indexed关键字，他们会保存在以太坊虚拟机日志的topics
+   4. 釋放:emit Transfer(from, to, amount);
+   5. 儲存：
+      1. EVM log 以太坊虚拟机（EVM）用日志Log来存储Solidity事件，每条日志记录都包含主题topics和数据data两部分。
+      2. 事件中不带 indexed的参数会被存储在 data 部分中，可以理解为事件的“值”。data 部分的变量不能被直接检索，但可以存储任意大小的数据。因此一般 data 部分可以用来存储复杂的数据结构，例如数组和字符串
+   6. event hash:keccak256("Transfer(address,address,uint256)")
+   7. 在Etherscan上查询事件:Etherscan
+
+
+### 2024.09.27
+
+學習內容：WTF #13
+
+# 13:繼承  （contract Erzi is Yeye）
+
+![image](https://github.com/user-attachments/assets/a0cb4b70-bcb9-4caa-8a88-15545372adb4)
+
+
+   1. virtual: 父合约中的函数，如果希望子合约重写，需要加上virtual关键字。
+
+   2. override：子合约重写了父合约中的函数（与变量同名的getter函数），需要加上override关键字。
+
+      mapping(address => uint256) public override balanceOf;   
+
+   3. 多重继承：高～低排(contract Erzi is Yeye, Baba)、多重需重寫、父在需冠父親名
+   4. Modifier 同样可以继承
+         构造函数继承:in 聲明or 子構造函數中
+   5. 调用父合约的函数:1)直接调用(Yeye.pop())和2)利用super关键字調用最近父合約函數(super.pop();)
+   6. 钻石继承（菱形继承）指一个派生类同时有两个或两个以上的基类
+
+   7. https://www.wtf.academy/docs/solidity-101/Inheritance/
+        
+### 2024.09.
+
+學習內容：WTF #14
+
+# 14:抽象合约和接口
+
+
 
 <!-- Content_END -->

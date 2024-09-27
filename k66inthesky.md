@@ -2,11 +2,6 @@
 timezone: Asia/Shanghai (UTC+8)
 ---
 
-
-timezone: Australia/Sydney # 澳大利亚东部标准时间 (UTC+10)
-
----
-
 # k66inthesky
 
 1. Hi我是k66，這是我第一次參加殘酷共學，一起衝鴨🦆
@@ -19,11 +14,42 @@ timezone: Australia/Sydney # 澳大利亚东部标准时间 (UTC+10)
 
 ### 2024.09.23
 
-學習內容: 
+學習內容: `Hello Web3`: 本堂課第一支程式
+> + `Solidity`: 用於EVM的程式語言
+> + `Remix`: Solidity的IDE
+> + Solidity程式架構: `1.註解Licence`、`2.Solidity版本號`、`3.contract相當於main`
 
-```
-```
+以下是實際寫碼+編譯過程:
 
-### 
+1.遇到錯誤->請AI提示->原本要照AI(左下角有RemixAI)提供的程式碼做(螢光綠處)->但發現錯誤其實來自少一字母r於是選擇不照AI的建議而是修正typo
+<img src="https://github.com/user-attachments/assets/7df89f23-f290-4827-b716-ac45c8605c1e" >
+2.編譯成功後，出現這些檔案(紅括號處)
+<img src="https://github.com/user-attachments/assets/1d8a949f-f49e-456a-9d9b-18f9da1ac6c1" >
+3.部屬合約前發現設定檔預設和教程有些不同(比如教程VM分支是merge但目前預設是坎昆)
+<img src="https://github.com/user-attachments/assets/62670336-ef07-4c87-b933-aa8916ff9ef4" >
+4.順便查了除了坎昆，也支援L2的Optimism和Arbitrum
+<img src="https://github.com/user-attachments/assets/c505fef6-2316-41ee-848c-44a24531b38c" >
+
+
+### 2024.09.24
+
+學習內容: `2.ValueTypes`
+> + 三種類型:Value Type, Reference Type, Mapping Type
+> + 與C語言寫法不同的是int寫在public前，如`int public _int = -1;`
+> + 常見Value type: bool, int, uint, uint256, address, address payable, bytes(可變), bytes1, bytes8, bytes32, enum
+
+
+### 2024.09.25
+學習內容: `3.function`
+> 這集對我來說單看有點難理解(碧琪公主那我看不懂)，
+> 看[這篇](https://medium.com/taipei-ethereum-meetup/solidity-weekly-11-70c5208a3bf1)才懂`pure`、`view`是為取代`constant`(到v0.4.17才取代)。
+> 此外`internal`、`external`蠻好懂。
+
+### 2024.09.26
+學習內容: `4.Return`
+> 分`returns`和`returns`，後者和其他程式語言類似，前者跟在函數名後面。
+> 特別的寫法，解構式賦值: `(, _bool2, ) = returnNamed();`
+> 
+
 
 <!-- Content_END -->

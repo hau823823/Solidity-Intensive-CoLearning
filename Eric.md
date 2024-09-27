@@ -17,17 +17,41 @@ timezone: Asia/Shanghai
 
 ### 2024.09.23
 
-```
-// 申明许可证
-// SPDX-License-Identifier: MIT  
-// 申明solidity版本号  ^表示大于，完整的意思是该文件必须大于等于0.8.21版本编译
-pragma solidity ^0.8.21;
-// 申明这是一个合约，并且合约的名字叫HelloWeb3
-contract HelloWeb3{
-   // 申明了一个string类型的状态变量，所有合约可见，变量名称是_string，变量值是Hello Web3
-    string public _string = "Hello Web3!";
-}
-```
-### 
+
+day01:
+
+[WTF Academy Solidity 101 1-2 Note](/content/Eric/101.md)
+
+### 2024.09.24
+
+day02:
+
+[WTF Academy Solidity 101 3-4 Note](/content/Eric/102.md)
+
+
+### 2024.09.25
+
+day03:
+
+[WTF Academy Solidity 101 5-6 Note](/content/Eric/103.md)
+
+
+
+### 2024.09.26
+
+day04:
+
+[WTF Academy Solidity 101 7-8 Note](/content/Eric/104.md)
+
+
+
+### 2024.09.27
+
+day05:
+
+[WTF Academy Solidity 101 9-10 Note](/content/Eric/105.md)
+
+
+
 
 <!-- Content_END -->
