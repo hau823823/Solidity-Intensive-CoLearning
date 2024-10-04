@@ -205,5 +205,185 @@ You can use getter function of public variables to confirm initial values:
     Student public student;
 
 ```
-### 
+###
+### 2024.09.28
+
+- Value-typed variables can be declared as constant and immutable; string and bytes can be declared as constant, but not immutable.
+
+- constant and immutable
+constant
+constant variable must be initialized during declaration and cannot be changed afterwards. Any modification attempt will result in error at compilation.
+```
+    // The constant variable must be initialized when declared and cannot be changed after that
+    uint256 constant CONSTANT_NUM = 10;
+    string constant CONSTANT_STRING = "0xAA";
+    bytes constant CONSTANT_BYTES = "WTF";
+    address constant CONSTANT_ADDRESS = 0x0000000000000000000000000000000000000000;
+```
+Copy
+- Immutable
+- The immutable variable can be initialized during declaration or in the constructor, which is more flexible.
+```
+    // The immutable variable can be initialized in the constructor and cannot be changed later
+    uint256 public immutable IMMUTABLE_NUM = 9999999999;
+    address public immutable IMMUTABLE_ADDRESS;
+    uint256 public immutable IMMUTABLE_BLOCK;
+    uint256 public immutable IMMUTABLE_TEST;
+```  
+```
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+contract Constant {
+    // constant变量必须在声明的时候初始化，之后不能改变
+    uint256 public constant CONSTANT_NUM = 10;
+    string public constant CONSTANT_STRING = "0xAA";
+    bytes public constant CONSTANT_BYTES = "WTF";
+    address public constant CONSTANT_ADDRESS = 0x0000000000000000000000000000000000000000;
+
+    // immutable变量可以在constructor里初始化，之后不能改变
+    uint256 public immutable IMMUTABLE_NUM = 9999999999;
+    address public immutable IMMUTABLE_ADDRESS;
+    uint256 public immutable IMMUTABLE_BLOCK;
+    uint256 public immutable IMMUTABLE_TEST;
+
+    // 利用constructor初始化immutable变量，因此可以利用
+    constructor(){
+        IMMUTABLE_ADDRESS = address(this);
+        IMMUTABLE_NUM = 1118;
+        IMMUTABLE_TEST = test();
+    }
+
+    function test() public pure returns(uint256){
+        uint256 what = 9;
+        return(what);
+    }
+}
+```  
+###
+
+### 2024.09.29
+if-else
+function ifElseTest(uint256 _number) public pure returns(bool){
+    if(_number == 0){
+    return(true);
+    }else{
+    return(false);
+    }
+}
+
+Copy
+for loop
+function forLoopTest() public pure returns(uint256){
+    uint sum = 0;
+    for(uint i = 0; i < 10; i++){
+    sum += i;
+    }
+    return(sum);
+}
+
+Copy
+while loop
+function whileTest() public pure returns(uint256){
+    uint sum = 0;
+    uint i = 0;
+    while(i < 10){
+    sum += i;
+    i++;
+    }
+    return(sum);
+}
+
+Copy
+do-while loop
+function doWhileTest() public pure returns(uint256){
+    uint sum = 0;
+    uint i = 0;
+    do{
+    sum += i;
+    i++;
+    }while(i < 10);
+    return(sum);
+}
+
+Copy
+Conditional (ternary) operator
+The ternary operator is the only operator in Solidity that accepts three operands：a condition followed by a question mark (?), then an expression x to execute if the condition is true followed by a colon (:), and finally the expression y to execute if the condition is false: condition ? x : y.
+
+This operator is frequently used as an alternative to an if-else statement.
+
+// ternary/conditional operator
+function ternaryTest(uint256 x, uint256 y) public pure returns(uint256){
+    // return the max of x and y
+    return x >= y ? x: y; 
+}
+
+Copy
+In addition, there are continue (immediately enter the next loop) and break (break out of the current loop) keywords that can be used.
+###
+###  2024.09.30
+Events
+The event in solidity are the transaction logs stored on the EVM (Ethereum Virtual Machine). They can be emitted during function calls and are accessible with the contract address. Events have two characteristics：
+
+Responsive: Applications (e.g. ether.js) can subscribe and listen to these events through RPC interface and respond at frontend.
+Economical: It is cheap to store data in events, costing about 2,000 gas each. In comparison, store a new variable on-chain takes at least 20,000 gas.
+Declare events
+The events are declared with the event keyword, followed by event name, then the type and name of each parameter to be recorded. Let's take the Transfer event from the ERC20 token contract as an example：
+
+event Transfer(address indexed from, address indexed to, uint256 value);
+
+Copy
+Transfer event records three parameters: from，to, and value，which correspond to the address where the tokens are sent, the receiving address, and the number of tokens being transferred. Parameter from and to are marked with indexed keywords, which will be stored at a special data structure known as topics and easily queried by programs.
+
+Emit events
+We can emit events in functions. In the following example, each time the _transfer() function is called, Transfer events will be emitted and corresponding parameters will be recorded.
+```
+    // define _transfer function，execute transfer logic
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) external {
+
+        _balances[from] = 10000000; // give some initial tokens to transfer address
+
+        _balances[from] -=  amount; // "from" address minus the number of transfer
+        _balances[to] += amount; // "to" address adds the number of transfer
+
+        // emit event
+        emit Transfer(from, to, amount);
+    }
+```
+###
+### 2024.10.01
+Inheritance
+Inheritance is one of the core concepts in object-oriented programming, which can significantly reduce code redundancy. It is a mechanism where you can to derive a class from another class for a hierarchy of classes that share a set of attributes and methods. In solidity, smart contracts can be viewed objects, which supports inheritance.
+
+Rules
+There are two important keywards for inheritance in Solidity:
+
+virtual: If the functions in the parent contract are expected to be overridden in its child contracts, they should be declared as virtual.
+
+override：If the functions in the child contract override the functions in its parent contract, they should be declared as override
+###
+### 2024.10.02
+Abstract contract
+If a contract contains at least one unimplemented function (no contents in the function body {}), it must be labeled as abstract; Otherwise it will not compile. Moreover, the unimplemented function needs to be labeled as virtual. Take our previous Insertion Sort Contract as an example, if we haven't figured out how to implement the insertion sort function, we can mark the contract as abstract, and let others overwrite it in the future.
+```
+abstract contract InsertionSort{
+    function insertionSort(uint[] memory a) public pure virtual returns(uint[] memory);
+}
+```
+###
+### 2024.10.03
+Errors
+Solidity has many functions for error handling. Errors can occur at compile time or runtime.
+
+Error
+error statement is a new feature in solidity 0.8. It saves gas and informs users why the operation failed. It is the recommended way to throw error in solidity. Custom errors are defined using the error statement, which can be used inside and outside of contracts. Below, we created a TransferNotOwner error, which will throw an error when the caller is not the token owner during transfer:
+###
+### 2024.10.04
+  start to read Solidity 102
+  day11:
+  [WTF Academy Solidity 102 16 Note](/content/jackchou/102.md)
+###
 <!-- Content_END -->

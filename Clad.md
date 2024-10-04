@@ -15,7 +15,7 @@ timezone: Asia/Taipei
 <!-- Content_START -->
 
 ### 2024.09.23
-學習內容  
+學習內容 Solidity 101  
 筆記:  
 #### Mapping
 ###### 使用 mapping 的時機？
@@ -208,14 +208,14 @@ function callParent() public{
 學習內容  
 筆記:  
 
-抽象合約(abstract)
+#### 抽象合約(abstract)
 - 如果合約裡有一個未實現的函數, 則必須將該合約標示為 abstract, 且未實現的函數需要加上 virtual, 以便子合約重寫
 ```solidity
 abstract contract InsertionSort{
    function fun1(uint[] memory a) public pure virtual returns(uint[] memory);
 }
 ```
-接口(interface)
+#### 接口(interface)
 - 接口類似抽象合約, 但不實現任何功能
 - 定義了合約的功能及如何觸發接口
 - 接口提供 1.合約裡每個函數的 bytes4 選擇器及函數簽名 2.接口 id
@@ -244,7 +244,7 @@ contract interactBAYC {
     }
 }
 ```
-異常
+#### 異常
 - 三種方法 error, require, assert
 - gas 消耗程度 require > error > assert
 
@@ -280,6 +280,279 @@ function transferOwner3(uint256 tokedId, address newOwner) public{
    _owners = newOwner;
 }
 ```
+<hr>
+
+### 2024.09.27
+學習內容 Solidity 102    
+筆記:  
+
+#### 函數重載
+重載(overloading), 名字相同但輸入參數類型不同的函數可以同時存在, 被視為不同函數; 注意, 不允許 modifier 重載
+疑問: 什時間點會使用到重載函數, 基本上我用函數的習慣不會重複命名
+
+實參匹配
+調用重載函數時, 會把輸入的實際參數和函數參數的變數類型做匹配, 如果出現多個匹配的重載函數, 會報錯
+ex: 調用f(50), 50 可以被轉換成 uint8, 也可以轉換成 uint256
+```Solidity
+function f(uint8 _in) public pure returns(uint8 out){
+   out = _in;
+}
+
+function f(uint256 _in) public pure returns(uint256 out){
+   out = _in;
+}
+```
+#### 庫合約
+- 目的, 減少程式碼的重複性和減少 gas
+- 常用的庫合約有, Strings, Address, Create2, Arrays
+兩種方式  
+1. 利用 using for 指令
+```Solidity
+using Strings for uint256;
+function getString1(uint256 _number) public pure returns(string memory){
+   return _number.toHexString();
+}
+```
+2. 通過庫合約名稱調用函數
+```Solidity
+function getString2(uint256 _number) public pure returns(string memory){
+   returns Strings.toHexString(_number);
+}
+```
+#### Import
+- 目的, 利用 import 引入外部程式碼, ex: 引用我們或別人寫好的合約, 函數, 程式碼
+
+用法
+1. 通過文件相對位置引用
+2. 通過全局符號, 引用指定的合約
+3. 通過網址引用
+4. 引用 OpenZeppelin 合約
+
+### 2024.09.28
+學習內容  
+筆記:  
+
+#### 接收 ETH, receive, fallback
+- 目的, 1.接收 ETH 2.處理合約中不存在的函數調用
+- 觸發規則   
+![image](https://github.com/user-attachments/assets/3dbf8f0a-2f3b-413f-b5e2-b9d0c437964d)
+
+
+receive
+- 當合約收到 ETH 轉帳時, receive() 會被觸發
+- 一個合約最多只有一個 receive()
+- receive() external payable{}, receive() 不能有參數, 不能返回值, 要包含 external 和 payable
+
+```Solidity
+// 定義事件
+event Received(address sender, uint Value);
+// 接收 ETH 時釋放 Received 事件
+receive() external payable{
+   emit Received(msg.semder, msg.value);
+}
+```
+fallback
+- 調用不存在的函數時會被觸發, 可用於接收 ETH, 也可用於代理合約 proxy contract
+- fallback() external payable{}
+
+### 2024.09.29
+學習內容  
+筆記:  
+
+#### 發送 ETH, transfer(), send(), call()
+- call 推薦, 沒有 gas 限制
+- transfer, 有 2300 gas 限制, 發送失敗會自動 revert 交易
+- send 最不推薦, 有 2300 gas 限制, 發送失敗時不會自動 revert 交易
+
+假設一個接收 ETH 合約
+```Solidity
+contract ReceiveETH{
+   // 收到 eth 事件, 紀錄 amount, gas
+   event Log(uint amount, uint gas);
+
+   // 接收到 eth 時觸發
+   receive() external payable{
+      emit Log(msg.value, gasleft());
+   }
+
+   // return 合約的 eth 餘額
+   function getBalance() view public returns(uint){
+      return address(this).balance;
+   }
+}
+```
+
+發送 eth 合約
+```Solidity
+contract snedETH{
+   // 構造函數, 部屬時候可以轉 eth 進去
+   construct() payable{}
+   // receice, 接收 eth 時被觸發
+   receive() external payable{}
+}
+```
+
+transfer  
+- 接收方的地址.transfer(發送數量)
+```Solidity
+// 用 transfer 發送 eth
+function transferETH(address payable _to, uint256 amount) external payable{
+   _to.transfer(amount);
+}
+```
+
+call  
+- 接收方地址.call{value: 發送數量}("")
+- call() 會返回 (bool, bytes), 其中 bool 代表轉帳成功或失敗, 需要額外程式碼處理
+```Solidity
+// 用 call 發送 eth 失敗 error
+error CallFailed();
+
+function callETH(address payable _to, uint256 amount) external payable{
+   (bool success, ) = _to.call{value: amount}("");
+   if(!success){
+      revert CallFailed();
+   }
+}
+```
+### 2024.09.30
+學習內容  
+筆記:  
+
+#### 調用其他合約
+- 目標, 如何在已知合約代碼和地址的情況下, 調用已部屬的合約
+  
+ex: 目標合約
+```Solidity
+contract OtherContract{
+   uint256 private _x = 0;
+
+   event Log(uint amount, uint gas);
+
+   // return 合約 eth 餘額
+   function getBalance() view public returns(uint){
+      return address(this).balance;
+   }
+
+   function setX(uint256 x) external payable{
+      _x = x;
+      if(msg.value > 0){
+         emit Log(msg.value, gasleft());
+      }
+   }
+
+   function getX() external view returns(uint x){
+      x = _x;
+   }
+}
+```
+
+1. 傳入合約的地址
+- 在函數裡傳入要調用的合約地址, 來生成目標合約的引用, 然後調用目標函數
+```Solidity
+function callSetX(address _Address, uint256 x) external{
+   otherContract(_Address).setX(x);
+}
+```
+2. 傳入合約的變數
+- 可以直接在函數裡傳入合約的引用, ex: 把參數類型 address 改為要調用的合約 OtherContract
+```Solidity
+function callGetX(OtherContract _Address) external view returns(uint x){
+   x = Address.getX(); 
+}
+```
+3. 創建合約的變數
+- 創建合約變數, 通過這個變數來調用目標合約
+```Solidity
+function callGetX2(address _Address) external view returns(uint x){
+   OtherContract oc = OtherContract(_Address);
+   x = oc.getX();
+}
+```
+4. 調用合約並發送 eth
+- 如果要調用的合約函數是 payable, 那麼可以通過調用它來給合約轉帳
+- 規則, contractName(_Address).f{value: _Value}()
+```Solidity
+function setXTransferETH(address otherContract, uint256 x) payable external{
+   OtherContract(otherContract).setX{value: msg.value}(x);
+}
+```
+### 2024.10.1
+學習內容  
+筆記:  
+
+#### Call
+功用
+- call 是 address 類型的低級成員函數, 用來與其它合約交互, return (bool bytes memory), 對應 call 是否成功和目標函數的返回值
+- call 通過觸發 fallback 或 receive 函數發送 eth
+
+寫法
+- 目標合約地址.call(字節碼)
+- 自節碼 利用結構化編碼函數取得, abi.encodeWithSignature("函數名(參數類型)", 參數)  
+  ex: abi.encodeWithSignature("f(uint256, address)", _x, _addr)
+- call 在調用合約時可以指定交易發送的 eth 數量和 gas 數量
+  目標合約地址.call{value: 發送數量, gas: gas 數量}(字節碼)
+
+安全注意
+- 不要用 call 調用另一個合約, 當調用不安全的合約函數時, 就會把主動權給對方, 建議方法是聲明合約變數後調用函數
+
+### 2024.10.2
+學習內容  
+筆記:  
+
+#### Delegatecall
+功用
+- 與 call 類似, 地址類型的低級成員函數
+- delegatecall 在調用合約時可以指定交易發送的 gas, 但不能指定發送的 eth
+- 智能合約將儲存合約和邏輯合約分開
+  代理合約儲存所有相關變數, 並且保存邏輯合約的地址; 邏輯合約儲存所有函數, 通過 delegate 執行
+- EIP-2535 Diamonds 鑽石, 鑽石是具有多個實施合約的代理合約
+  
+寫法
+- 目標合約地址.delegatecall(二進制編碼)
+- 二進制編碼 利用結構化編碼函數獲得, abi.encodeWithSignature("簽名函數", 具體參數)
+
+安全注意
+- 使用時要確保當前合約和目標合約的狀態變數儲存結構相同, 並且目標合約安全, 不然會造成資產損失
+
+#### 在合約中創建新合約
+寫法
+Contract 要創建的合約名, x 合約對象(地址), 如果構造函數是 payable 可以創建時轉入 _value 數量的 eth, params 新合約構造函數的參數 
+```Solidity
+Contract x = new Contract{value: _value}(params)
+```
+### 2024.10.3  
+學習內容  
+筆記:  
+
+#### Creat2
+功用
+- 不管未來區塊鏈上發生甚麼, 你都可以把合約部屬在事先計算好的地址上
+- 交易所為新用戶預留創建錢包合約的地址
+- 
+
+計算 Creat2 地址
+- 新地址 = hash("0xFF", 創建者地址, salt, initcode)
+- OxFF, 常數  
+  創建者地址, 調用 creat2 的當前合約地址
+  salt, 創建者指定的 bytes32 類型的值, 主要是用來影響新創見合約的地址
+  initcode, 新合約的初始字節碼
+
+寫法
+```Solidity
+Contract x = new Contract{salt: _salt, value: _value}(parms)
+```
+
+```Solidity
+// salt 為 token1 和 token2 的 hash
+bytes32 salt = keccak256(abi.endcodePacked(token1, token2));
+```
+
+  
+  
+
+
+
 
 
 <!-- Content_END -->

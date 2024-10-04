@@ -681,7 +681,327 @@ receive()   fallback()
   如果转账失败，不会 revert  
   返回值是(bool, bytes)，其中 bool 代表着转账成功或失败，需要额外代码处理一下
 
-  ### 2024.09.27
+### 2024.09.27
+
+21. 调用其他合约  
+    接口的调用实际上也是一种调用其他合约：InterfaceContractName other = InterfaceContractName(\_ContractAddress)
+
+```solidity
+//方法1：通过合约地址，合约名(合约地址).函数名()
+function callSetX(address _Address, uint256 x) external{
+    OtherContract(_Address).setX(x);
+}
+
+//方法2：通过合约变量
+function callGetX(OtherContract _Address) external view returns(uint x){
+    x = _Address.getX();
+}
+
+//方法3：创建合约变量，然后调用
+function callGetX2(address _Address) external view returns(uint x){
+    OtherContract oc = OtherContract(_Address);
+    x = oc.getX();
+}
+
+//方法4：目标合约的函数是payable的，可以调用它来给合约转账
+function setXTransferETH(address otherContract, uint256 x) payable external{
+    OtherContract(otherContract).setX{value: msg.value}(x);
+}
+```
+
+### 2024.09.28
+
+22. call
+
+- call 是 address 类型的低级成员函数,它的返回值为(bool, bytes memory)，分别对应 call 是否成功、及目标函数的返回值。  
+  call 不是调用合约的推荐方法，因为**不安全**。但他能让我们在不知道源代码和 ABI 的情况下调用目标合约
+  - call 是 Solidity 官方推荐的通过触发 fallback 或 receive 函数发送 ETH 的方法。
+  - 不推荐用 call 来调用另一个合约，避免合约漏洞。应该**先声明合约变量后调用函数**。
+  - 当我们不知道对方合约的源代码或 ABI，就没法生成合约变量；这时，我们仍可以通过 call 调用对方合约的函数。
+- 使用
+  - 字节码：abi.encodeWithSignature("函数签名", 逗号分隔的具体参数)
+  - 目标合约地址.call( abi.encodeWithSignature("函数签名", 逗号分隔的具体参数) );
+  - call 在调用合约时可以指定交易发送的 ETH 数额和 gas 数额：目标合约地址.call{value:发送数额, gas:gas 数额}(abi.encodeWithSignature("函数签名", 逗号分隔的具体参数));
+- 举例
+
+```solidity
+//目标合约
+contract OtherContract {
+    uint256 private _x = 0; // 状态变量x
+    // 收到eth的事件，记录amount和gas
+    event Log(uint amount, uint gas);
+
+    fallback() external payable{}
+
+    // 返回合约ETH余额
+    function getBalance() view public returns(uint) {
+        return address(this).balance;
+    }
+
+    // 可以调整状态变量_x的函数，并且可以往合约转ETH (payable)
+    function setX(uint256 x) external payable{
+        _x = x;
+        // 如果转入ETH，则释放Log事件
+        if(msg.value > 0){
+            emit Log(msg.value, gasleft());
+        }
+    }
+
+    // 读取x
+    function getX() external view returns(uint x){
+        x = _x;
+    }
+}
+```
+
+```solidity
+//调用setX
+function callSetX(address payable _addr, uint256 x) public payable {
+    // call setX()，同时可以发送ETH
+    (bool success, bytes memory data) = _addr.call{value: msg.value}(
+        abi.encodeWithSignature("setX(uint256)", x)
+    );
+
+    emit Response(success, data); //释放事件
+}
+
+//调用不存在的函数，相当于fallback
+function callNonExist(address _addr) external{
+    // call 不存在的函数
+    (bool success, bytes memory data) = _addr.call(
+        abi.encodeWithSignature("foo(uint256)")
+    );
+
+    emit Response(success, data); //释放事件
+}
+```
+
+### 2024.09.29
+
+23. Delegatecall
+
+- 用途：
+  - 合约代理  
+    用户 A 通过合约 B 调用合约 C 里的函数，改变合约 B 里的变量
+  - [EIP-2535 Diamonds](https://eip2535diamonds.substack.com/p/introduction-to-the-diamond-standard)
+- delegatecall 在调用合约时可以指定交易发送的 gas，但不能指定发送的 ETH 数额
+- delegatecall 有**安全隐患**，使用时要保证当前合约和目标合约的状态变量存储结构相同，并且目标合约安全，不然会造成资产损失。
+- 举例：
+
+```solidity
+// 被调用的合约C,使用这个合约里的函数功能
+contract C {
+    uint public num;
+    address public sender;
+    function setVars(uint _num) public payable {
+        num = _num;
+        sender = msg.sender;
+    }
+}
+
+//发起调用的合约B
+//合约B必须和目标合约C的变量存储布局必须相同，两个变量（可以不同名，类型和顺序必须相同），并且顺序为num和sender
+contract B {
+    uint public num;
+    address public sender;
+
+    // 通过call来调用C的setVars()函数，将改变合约C里的状态变量
+    function callSetVars(address _addr, uint _num) external payable{
+        // call setVars()
+        (bool success, bytes memory data) = _addr.call(
+            abi.encodeWithSignature("setVars(uint256)", _num)
+        );
+    }
+
+    // 通过delegatecall来调用C的setVars()函数，将改变合约B里的状态变量
+    function delegatecallSetVars(address _addr, uint _num) external payable{
+        // delegatecall setVars()
+        (bool success, bytes memory data) = _addr.delegatecall(
+            abi.encodeWithSignature("setVars(uint256)", _num) //注意是uint256
+        );
+    }
+}
+```
+
+部署好合约 B,C；  
+用户钱包地址 A；  
+使用 B 的 callSetVars,传入 C 合约地址，num=10：C 合约变量 num 改成 10，sender 为 B 的地址；  
+使用 B 的 delegatecallSetValues，传入 C 的合约地址，num=100: B 的合约变量 num 改为 100，sender 地址为 A 的钱包地址，C 合约变量没变；
+
+### 2024.09.30
+
+24. 合约中创建合约
+
+- 以 uniswap V2 为例
+
+```solidity
+contract Pair{ //交易对合约，管理币对的地址
+    address public factory; // *工厂合约地址
+    address public token0; // 代币1
+    address public token1; // 代币2
+
+    constructor() payable {
+        factory = msg.sender;
+    }
+
+    // called once by the factory at time of deployment
+    function initialize(address _token0, address _token1) external {
+        require(msg.sender == factory, 'UniswapV2: FORBIDDEN'); // sufficient check
+        token0 = _token0;
+        token1 = _token1;
+    }
+}
+
+
+contract PairFactory{//工厂合约，用来创建新交易对
+    mapping(address => mapping(address => address)) public getPair; // 通过两个代币地址查Pair地址
+    address[] public allPairs; // 保存所有Pair地址
+
+    function createPair(address tokenA, address tokenB) external returns (address pairAddr) {
+        // 创建新合约
+        Pair pair = new Pair();
+        // 调用新合约的initialize方法
+        pair.initialize(tokenA, tokenB);
+        // 更新地址map
+        pairAddr = address(pair);
+        allPairs.push(pairAddr);
+        getPair[tokenA][tokenB] = pairAddr;
+        getPair[tokenB][tokenA] = pairAddr;
+    }
+}
+```
+
+### 2024.10.01
+
+25. create2
+
+- create 地址的计算：新地址 = hash(创建者地址, nonce)  
+  因为 nonce 会随时间而改变，所以 create 的新合约地址不好预测
+- create2 的地址计算：  
+  新地址 = hash("0xFF",创建者地址, salt, initcode)
+  - 0xFF：一个常数，避免和 CREATE 冲突
+  - salt（盐）：一个创建者指定的 bytes32 类型的值，它的主要目的是用来影响新创建的合约的地址。
+  - initcode: 新合约的初始字节码（合约的 Creation Code 和构造函数的参数）
+- 使用：Contract x = new Contract{salt: \_salt, value: \_value}(params)
+- Uinswap V2 实际上用的 create2 来实现
+
+```solidity
+contract Pair{
+    address public factory; // 工厂合约地址
+    address public token0; // 代币1
+    address public token1; // 代币2
+
+    constructor() payable {
+        factory = msg.sender;
+    }
+
+    // called once by the factory at time of deployment
+    function initialize(address _token0, address _token1) external {
+        require(msg.sender == factory, 'UniswapV2: FORBIDDEN'); // sufficient check
+        token0 = _token0;
+        token1 = _token1;
+    }
+}
+
+
+contract PairFactory2{
+    mapping(address => mapping(address => address)) public getPair; // 通过两个代币地址查Pair地址
+    address[] public allPairs; // 保存所有Pair地址
+
+    function createPair2(address tokenA, address tokenB) external returns (address pairAddr) {
+        require(tokenA != tokenB, 'IDENTICAL_ADDRESSES'); //避免tokenA和tokenB相同产生的冲突
+        // 用tokenA和tokenB地址计算salt
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA); //将tokenA和tokenB按大小排序
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        // 用create2部署新合约
+        Pair pair = new Pair{salt: salt}();
+        // 调用新合约的initialize方法
+        pair.initialize(tokenA, tokenB);
+        // 更新地址map
+        pairAddr = address(pair);
+        allPairs.push(pairAddr);
+        getPair[tokenA][tokenB] = pairAddr;
+        getPair[tokenB][tokenA] = pairAddr;
+    }
+
+    // 用来验证提前计算pair合约地址是否正确
+    function calculateAddr(address tokenA, address tokenB) public view returns(address predictedAddress){
+        require(tokenA != tokenB, 'IDENTICAL_ADDRESSES'); //避免tokenA和tokenB相同产生的冲突
+        // 计算用tokenA和tokenB地址计算salt
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA); //将tokenA和tokenB按大小排序
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        // 计算合约地址方法 hash()
+        predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
+            bytes1(0xff),
+            address(this),
+            salt,
+            keccak256(type(Pair).creationCode)
+            )))));
+    }
+
+}
+
+```
+
+### 2024.10.02
+
+26. 删除合约
+
+- selfdestruct 编译阶段会告警，不建议使用，[EIP6049](https://eips.ethereum.org/EIPS/eip-6049)
+
+- 坎昆升级[EIP6780](https://eips.ethereum.org/EIPS/eip-6780)减少了 SELFDESTRUCT 操作码的功能，当前 SELFDESTRUCT 仅会被用来将合约中的 ETH 转移到指定地址，而原先的删除功能只有在合约创建-自毁这两个操作处在同一笔交易时才能生效。
+
+- 举例
+
+```solidity
+contract DeleteContract {
+    //在坎昆升级前可以完成合约的自毁，在坎昆升级后仅能实现内部ETH余额的转移
+    uint public value = 10;
+    constructor() payable {}
+    receive() external payable {}
+
+    function deleteContract() external {
+        // 调用selfdestruct销毁合约，并把剩余的ETH转给msg.sender
+        selfdestruct(payable(msg.sender));
+    }
+
+    function getBalance() external view returns(uint balance){
+        balance = address(this).balance;
+    }
+}
+```
+
+### 2024.10.03
+
+27. ABI 编码解码
+
+- 编码
+  - abi.encode  
+    将每个参数填充为 32 字节的数据，并拼接在一起
+  - abi.encodePacked  
+    省略 0，不能与合约交互
+  - abi.encodeWithSignaturec  
+    第一个参数为函数签名，调用其他合约时使用，等同于在 abi.encode 编码结果前加上了 4 字节的函数选择器
+  - abi.encodeWithSelector  
+    第一个参数为函数选择器
+- 解码
+  - abi.encode
+- ABI 的使用场景
+  - 配合 call 来实现对合约的底层调用
+  - 合约导入，函数调用
+  - 对不开源合约进行反编译后，某些函数无法查到函数签名，可通过**ABI 函数选择器**进行调用
+
+### 2024.10.04
+
+### 2024.10.05
+
+### 2024.10.06
+
+### 2024.10.07
+
+### 2024.10.08
+
+### 2024.10.09
 
 <!-- Content_END -->
 

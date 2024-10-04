@@ -158,4 +158,281 @@ NFT 合约时可以通过继承 ERC721 合约从而快速高效的进行业务�
 
 ### 
 
+
+### 2024.09.27
+
+#### 荷兰拍
+
+荷兰拍卖（Dutch Auction）是一种特殊的拍卖形式, 指拍卖标的的竞价由高到低依次递减，参与者在看到当前价格后，可以选
+择立即购买（出价）或等待进一步降价, 最先出价的买家将获得商品。
+
+
+特点：
+- 透明性：价格逐渐降低，所有参与者可以看到当前价格，有助于形成公平竞争环境。
+- 效率：通过时间限制和逐步降价，能够快速达成交易，减少了漫长的谈判过程。
+- 真实需求反映：买家可以根据自己的需求决定出价，有助于更好地反映市场需求。
+- 减少库存风险：对于卖家来说，荷兰拍可以帮助更快地清理库存，降低持有成本。
+- 吸引竞争：可以通过逐步降价吸引更多买家参与，增加成交的可能性。
+
+
+web3荷兰拍的案例：
+
+- Azuki(Azuki通过荷兰拍卖筹集了超过8000枚ETH)
+- World of Women
+
+
+
+#### BeraAl 荷兰拍合约
+
+```Solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+contract BeraApDutchAuction is Ownable, ERC721 {
+    uint256 public constant COLLECTION_SIZE = 10000; // NFT总数
+    uint256 public constant AUCTION_START_PRICE = 1 ether; // 起拍价
+    uint256 public constant AUCTION_END_PRICE = 0.1 ether; // 结束价（最低价）
+    uint256 public constant AUCTION_TIME = 10 minutes; // 拍卖时间
+    uint256 public constant AUCTION_DROP_INTERVAL = 1 minutes; // 每过多久时间，价格衰减一次
+    uint256 public constant AUCTION_DROP_PER_STEP =
+        (AUCTION_START_PRICE - AUCTION_END_PRICE) /
+        (AUCTION_TIME / AUCTION_DROP_INTERVAL); // 每次价格衰减步长
+    
+    uint256 public auctionStartTime; // 拍卖开始时间戳
+    string private _baseTokenURI;   // metadata URI
+    uint256[] private _allTokens; // 记录所有存在的tokenId 
+
+    constructor() Ownable(msg.sender) ERC721("BeraAp Dutch Auction", "BERAAP") {
+        auctionStartTime = block.timestamp;
+    }
+
+
+    function totalSupply() public view virtual returns (uint256) {
+        return _allTokens.length;
+    }
+
+   
+    function _addTokenToAllTokensEnumeration(uint256 tokenId) private {
+        _allTokens.push(tokenId);
+    }
+
+    // 拍卖mint函数
+    function auctionMint(uint256 quantity) external payable{
+        uint256 _saleStartTime = uint256(auctionStartTime); // 建立local变量，减少gas花费
+        require(_saleStartTime != 0 && block.timestamp >= _saleStartTime, "sale has not started yet"); // 检查是否设置起拍时间，拍卖是否开始
+        require(totalSupply() + quantity <= COLLECTION_SIZE, "not enough remaining reserved for auction to support desired mint amount"); // 检查是否超过NFT上限
+
+        uint256 totalCost = getAuctionPrice() * quantity; // 计算mint成本
+        require(msg.value >= totalCost, "Need to send more ETH."); // 检查用户是否支付足够ETH
+        
+        // Mint NFT
+        for(uint256 i = 0; i < quantity; i++) {
+            uint256 mintIndex = totalSupply();
+            _mint(msg.sender, mintIndex);
+            _addTokenToAllTokensEnumeration(mintIndex);
+        }
+        // 多余ETH退款
+        if (msg.value > totalCost) {
+            payable(msg.sender).transfer(msg.value - totalCost); //注意一下这里是否有重入的风险
+        }
+    }
+
+    // 获取拍卖实时价格
+    function getAuctionPrice() public view returns (uint256) {
+        if (block.timestamp < auctionStartTime) {
+			return AUCTION_START_PRICE;
+        }else if (block.timestamp - auctionStartTime >= AUCTION_TIME) {
+			return AUCTION_END_PRICE;
+        } else {
+			uint256 steps = (block.timestamp - auctionStartTime) / AUCTION_DROP_INTERVAL;
+			return AUCTION_START_PRICE - (steps * AUCTION_DROP_PER_STEP);
+        }
+    }
+
+    function setAuctionStartTime(uint32 timestamp) external onlyOwner {
+        auctionStartTime = timestamp;
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function setBaseURI(string calldata baseURI) external onlyOwner {
+        _baseTokenURI = baseURI;
+    }
+
+    function withdrawMoney() external onlyOwner {
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        require(success, "Transfer failed.");
+    }
+}
+
+
+```
+
+### 
+
+
+
+### 2024.09.28 
+
+提交被覆盖，待补充
+
+###
+
+
+### 2024.09.29
+
+#### 数字签名
+
+以太坊使用的数字签名算法叫双椭圆曲线数字签名算法（ECDSA），基于双椭圆曲线“私钥-公钥”对的数字签名算法。
+
+ECDSA:
+- 公钥
+- 私钥
+
+
+NFT项目方可以利用ECDSA的验证特性发放白名单，而且签名是线下的不需要Gas，经济又方便。
+
+```Solidity
+
+contract SignatureNFT is ERC721 {
+    address immutable public signer; // 签名地址
+    mapping(address => bool) public mintedAddress;   // 记录已经mint的地址
+
+    // 构造函数，初始化NFT合集的名称、代号、签名地址
+    constructor(string memory _name, string memory _symbol, address _signer)
+    ERC721(_name, _symbol)
+    {
+        signer = _signer;
+    }
+
+    // 利用ECDSA验证签名并mint
+    function mint(address _account, uint256 _tokenId, bytes memory _signature)
+    external
+    {
+        bytes32 _msgHash = getMessageHash(_account, _tokenId); // 将_account和_tokenId打包消息
+        bytes32 _ethSignedMessageHash = ECDSA.toEthSignedMessageHash(_msgHash); // 计算以太坊签名消息
+        require(verify(_ethSignedMessageHash, _signature), "Invalid signature"); // ECDSA检验通过
+        require(!mintedAddress[_account], "Already minted!"); // 地址没有mint过
+
+
+        mintedAddress[_account] = true; // 记录mint过的地址, 防止重入攻击
+        _mint(_account, _tokenId); // mint
+    }
+
+    function getMessageHash(address _account, uint256 _tokenId) public pure returns(bytes32){
+        return keccak256(abi.encodePacked(_account, _tokenId));
+    }
+
+    function verify(bytes32 _msgHash, bytes memory _signature) public view returns (bool) {
+        return ECDSA.verify(_msgHash, _signature, signer);
+    }
+}
+```
+
+###
+
+
+
+### 2024.09.30
+
+
+#### NFT 交易所
+
+用Solidity搭建一个零手续费的NFT交易所
+- 卖家：出售NFT的一方，可以挂单list、撤单revoke、修改价格update。
+- 买家：购买NFT的一方，可以购买purchase。
+- 订单：卖家发布的NFT链上订单，一个系列的同一tokenId最多存在一个订单，其中包含挂单价格price和持有人owner信息。当一个订单交易完成或被撤单后，其中信息清零。
+
+
+#### 合约事件
+
+```Solidity
+event List(address indexed seller, address indexed nftAddr, uint256 indexed tokenId, uint256 price);
+event Purchase(address indexed buyer, address indexed nftAddr, uint256 indexed tokenId, uint256 price);
+event Revoke(address indexed seller, address indexed nftAddr, uint256 indexed tokenId);
+event Update(address indexed seller, address indexed nftAddr, uint256 indexed tokenId, uint256 newPrice);
+```
+
+###
+
+
+### 2024.10.1
+
+#### 随机数
+
+由于以太坊上所有数据都是公开透明（public）且确定性（deterministic）的，没法像其他编程语言一样给
+开发者提供生成随机数的方法，在web3上可以使用链上或链下方法生成随机数。
+
+
+#### 链上随机数生成
+可以将一些链上的全局变量作为种子，利用keccak256()哈希函数来获取伪随机数。
+
+```Solidity
+function getRandomOnchain() public view returns(uint256){
+    bytes32 randomBytes = keccak256(abi.encodePacked(block.timestamp, msg.sender, blockhash(block.number-1)));
+
+    return uint256(randomBytes);
+}
+```
+这种方法因为使用的种子数据都是公开的， 所以使用者可以预测出这些种子生成的随机数, 其次旷工可以操纵 blockhash 和 
+block.timestamp 使得生成的随机数符合他的利益。
+
+###
+
+
+
+### 2024.10.2
+
+#### ERC1155 
+
+
+以太坊EIP1155提出了一个多代币标准ERC1155，允许一个合约包含多个同质化和非同质化代币。ERC1155在GameFi应用最多，
+Decentraland、Sandbox等知名链游都使用它。
+
+
+在ERC1155中，每一种代币都有一个id作为唯一标识，每个id对应一种代币。这样代币种类就可以非同质的在同一个合约里
+管理了，并且每种代币都有一个网址uri来存储它的元数据，类似ERC721的tokenURI。
+
+
+#### ERC1155的元数据接口合约IERC1155MetadataURI
+
+```Solidity
+interface IERC1155MetadataURI is IERC1155 {
+    /**
+     * @dev 返回第`id`种类代币的URI
+     */
+    function uri(uint256 id) external view returns (string memory);
+}
+
+```
+
+如果某个id对应的代币总量为1，就是非同质化代币；如果某个id对应的代币总量大于1，就是同质化代币，因为这些代币都
+分享同一个id，类似ERC20。
+
+
+#### IERC1155 合约
+
+IERC1155接口合约抽象了EIP1155需要实现的功能，其中包含4个事件和6个函数。与ERC721不同，因为ERC1155包含多类代币，它实
+现了批量转账和批量余额查询，可以一次操作多种代币。
+
+
+
+#### ERC1155 接收合约
+
+与ERC721标准类似，为了避免代币被转入黑洞合约，ERC1155要求代币接收合约继承IERC1155Receiver并实现两个接收函数：
+
+- onERC1155Received()：单币转账接收函数，接受ERC1155安全转账safeTransferFrom 需要实现并返回自己的选择器0xf23a6e61。
+
+- onERC1155BatchReceived()：多币转账接收函数，接受ERC1155安全多币转账safeBatchTransferFrom 需要实现并返回自己的选择器0xbc197c81。
+
+
+###
+
+
+
 <!-- Content_END -->

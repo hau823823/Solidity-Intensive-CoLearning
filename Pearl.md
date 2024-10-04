@@ -648,4 +648,422 @@ contract structType{
        }
    }
    ```
+
+###  2024.09.29
+09.28內容不見了，重打一遍。
+
+**抽象合约**
+   * 如果一个智能合约里至少有一个未实现的函数，即某个函数缺少主体{}中的内容，则必须将该合约标为`abstract`。
+   * 未实现的函数需要加`virtual`，以便子合约重写。
+   ```Solidity
+   abstract contract InsertionSort{
+       function insertionSort(uint[] memory a) public pure virtual returns(uint[] memory);
+   }
+   ```
+
+**接口**
+   * 类似于抽象合约，但它不实现任何功能。
+   * 接口的规则：
+     1. 不能包含状态变量。
+     2. 不能包含构造函数。
+     3. 不能继承除接口外的其他合约。
+     4. 所有函数都必须是external且不能有函数体。
+     5. 继承接口的非抽象合约必须实现接口定义的所有功能。
+   * 接口是智能合约的骨架，定义了合约的功能以及如何触发它们。
+   * 如果智能合约实现了某种接口（比如`ERC20`或`ERC721`），其他Dapps和智能合约就知道如何与它交互。因为接口提供了两个重要的信息：
+     1. 合约里每个函数的`bytes4`选择器，以及函数签名`函数名(每个参数类型）`。
+     2. 接口id。
+   * 接口与合约`ABI`（Application Binary Interface）等价，可以相互转换。
+   * 编译接口可以得到合约的`ABI`，利用abi-to-sol工具，也可以将`ABI json`文件转换为接口`sol`文件。
+   ```Solidity
+   interface IERC721 is IERC165 {
+       event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+       event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
+       event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+       
+       function balanceOf(address owner) external view returns (uint256 balance);
+   
+       function ownerOf(uint256 tokenId) external view returns (address owner);
+   
+       function safeTransferFrom(address from, address to, uint256 tokenId) external;
+   
+       function transferFrom(address from, address to, uint256 tokenId) external;
+   
+       function approve(address to, uint256 tokenId) external;
+   
+       function getApproved(uint256 tokenId) external view returns (address operator);
+   
+       function setApprovalForAll(address operator, bool _approved) external;
+   
+       function isApprovedForAll(address owner, address operator) external view returns (bool);
+   
+       function safeTransferFrom( address from, address to, uint256 tokenId, bytes calldata data) external;
+   }
+   ```
+   * 我们可以看到，接口和常规合约的区别在于每个函数都以`;`代替函数体`{ }`结尾。
+   
+**IERC721事件**
+   
+   `IERC721`包含3个事件，其中`Transfer`和`Approval`事件在`ERC20`中也有。
+   1. `Transfer`事件：在转账时被释放，记录代币的发出地址`from`，接收地址`to`和`tokenId`。
+   2. `Approval`事件：在授权时被释放，记录授权地址`owner`，被授权地址`approved`和`tokenId`。
+   3. `ApprovalForAll`事件：在批量授权时被释放，记录批量授权的发出地址`owner`，被授权地址`operator`和授权与否的`approved`。
+        
+**IERC721函数**
+   1. `balanceOf`：返回某地址的NFT持有量`balance`。
+   2. `ownerOf`：返回某`tokenId`的主人`owner`。
+   3. `transferFrom`：普通转账，参数为转出地址`from`，接收地址`to`和`tokenId`。
+   4. `safeTransferFrom`：安全转账（如果接收方是合约地址，会要求实现`ERC721Receiver`接口）。参数为转出地址`from`，接收地址`to`和`tokenId`。
+   5. `approve`：授权另一个地址使用你的NFT。参数为被授权地址`approve`和`tokenId`。
+   6. `getApproved`：查询`tokenId`被批准给了哪个地址。
+   7. `setApprovalForAll`：将自己持有的该系列NFT批量授权给某个地址`operator`。
+   8. `isApprovedForAll`：查询某地址的NFT是否批量授权给了另一个`operator`地址。
+   9. `safeTransferFrom`：安全转账的重载函数，参数里面包含了`data`。
+      
+**什么时候使用接口？**
+   * 一个合约实现了`IERC721`接口，我们不需要知道它具体代码实现，就可以与它交互。
+   ```Solidity
+    contract interactBAYC {
+       // 利用BAYC地址创建接口合约变量（ETH主网）
+       IERC721 BAYC = IERC721(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
+   
+       // 通过接口调用BAYC的balanceOf()查询持仓量
+       function balanceOfBAYC(address owner) external view returns (uint256 balance){
+           return BAYC.balanceOf(owner);
+       }
+   
+       // 通过接口调用BAYC的safeTransferFrom()安全转账
+       function safeTransferFromBAYC(address from, address to, uint256 tokenId) external{
+           BAYC.safeTransferFrom(from, to, tokenId);
+       }
+   }
+   ```
+
+**异常**
+   * 检查条件不成立的时候，就会抛出异常。
+   * Error
+      *  方便且高效（省`gas`）地向用户解释操作失败的原因
+      *  抛出异常的同时可携带参数
+      *  可以在`contract`之外定义异常
+      ```Solidity
+        error TransferNotOwner(); // 自定义error
+        error TransferNotOwner(address sender); // 自定义的带参数的error
+     
+        function transferOwner1(uint256 tokenId, address newOwner) public {
+          if(_owners[tokenId] != msg.sender){
+              revert TransferNotOwner();
+              // revert TransferNotOwner(msg.sender);
+          }
+          _owners[tokenId] = newOwner;
+        }
+      ```
+      * `error`必须搭配`revert`（回退）命令使用。
+   * Require
+      * 唯一的缺点就是`gas`随着描述异常的字符串长度增加，比`error`命令要高。
+      * 使用方法：`require(检查条件，"异常的描述")`
+      ```Solidity
+      function transferOwner2(uint256 tokenId, address newOwner) public {
+          require(_owners[tokenId] == msg.sender, "Transfer Not Owner");
+          _owners[tokenId] = newOwner;
+      }
+      ```
+   * Assert
+      * 一般用于程序员写程序`debug`
+      * 不能解释抛出异常的原因（比`require`少个字符串）
+      * 使用方法：`assert(检查条件）`
+      ```Solidity
+      function transferOwner3(uint256 tokenId, address newOwner) public {
+          assert(_owners[tokenId] == msg.sender);
+          _owners[tokenId] = newOwner;
+      }
+      ```
+
+### 2024.09.30
+
+**重载**
+   * 名字相同但输入参数类型不同的函数可以同时存在，他们被视为不同的函数。
+   * Solidity不允许修饰器（`modifier`）重载。
+   * 函数重载:
+   ```Solidity
+   function saySomething() public pure returns(string memory){
+       return("Nothing");
+   }
+   
+   function saySomething(string memory something) public pure returns(string memory){
+       return(something);
+   }
+   ```
+![image](https://github.com/user-attachments/assets/562464eb-f093-46d6-8b24-23aeb101352d)
+
+   * 实参匹配（Argument Matching）:
+      * 在调用重载函数时，会把输入的实际参数和函数参数的变量类型做匹配。
+      * 如果出现多个匹配的重载函数，则会报错。
+     ```Solidity
+     function f(uint8 _in) public pure returns (uint8 out) {
+        out = _in;
+     }
+      
+     function f(uint256 _in) public pure returns (uint256 out) {
+        out = _in;
+     }
+     ```
+      * 调用`f(50)`，因为50既可以被转换为`uint8`，也可以被转换为`uint256`，因此会报错。
+        
+**库合约**
+   * 是一系列的函数合集
+   * 和普通合约的不同：
+     1. 不能存在状态变量
+     2. 不能够继承或被继承
+     3. 不能接收以太币
+     4. 不可以被销毁
+   * 函数可见性如果被设置为`public`或者`external`，则在调用函数时会触发一次`delegatecall`。如果被设置为`internal`，则不会引起。
+   * 对于设置为`private`可见性的函数来说，其仅能在库合约中可见，在其他合约中不可用。
+
+**Strings库合约**
+   * 将`uint256`类型转换为相应的`string`类型的代码库
+```Solidity
+   library Strings {
+       bytes16 private constant _HEX_SYMBOLS = "0123456789abcdef";
+   
+       /**
+        * @dev Converts a `uint256` to its ASCII `string` decimal representation.
+        */
+       function toString(uint256 value) public pure returns (string memory) {
+           // Inspired by OraclizeAPI's implementation - MIT licence
+           // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+   
+           if (value == 0) {
+               return "0";
+           }
+           uint256 temp = value;
+           uint256 digits;
+           while (temp != 0) {
+               digits++;
+               temp /= 10;
+           }
+           bytes memory buffer = new bytes(digits);
+           while (value != 0) {
+               digits -= 1;
+               buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+               value /= 10;
+           }
+           return string(buffer);
+       }
+   
+       /**
+        * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation.
+        */
+       function toHexString(uint256 value) public pure returns (string memory) {
+           if (value == 0) {
+               return "0x00";
+           }
+           uint256 temp = value;
+           uint256 length = 0;
+           while (temp != 0) {
+               length++;
+               temp >>= 8;
+           }
+           return toHexString(value, length);
+       }
+   
+       /**
+        * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
+        */
+       function toHexString(uint256 value, uint256 length) public pure returns (string memory) {
+           bytes memory buffer = new bytes(2 * length + 2);
+           buffer[0] = "0";
+           buffer[1] = "x";
+           for (uint256 i = 2 * length + 1; i > 1; --i) {
+               buffer[i] = _HEX_SYMBOLS[value & 0xf];
+               value >>= 4;
+           }
+           require(value == 0, "Strings: hex length insufficient");
+           return string(buffer);
+       }
+   }
+   ```
+   * 如何使用库合约:
+      1. 利用using for指令: 指令`using A for B`; 可用于附加库合约（从库 A）到任何类型（B）。添加完指令后，库A中的函数会自动添加为B类型变量的成员，可以直接调用。
+         * 在调用的时候，这个变量会被当作第一个参数传递给函数
+         ```Solidity
+         // 利用using for指令
+         using Strings for uint256;
+         function getString1(uint256 _number) public pure returns(string memory){
+             // 库合约中的函数会自动添加为uint256型变量的成员
+             return _number.toHexString();
+         }
+         ```
+      2. 通过库合约名称调用函数
+         ```Solidity
+         // 直接通过库合约名调用
+         function getString2(uint256 _number) public pure returns(string memory){
+             return Strings.toHexString(_number);
+         }
+         ```
+     ![image](https://github.com/user-attachments/assets/eddca6ba-278c-466f-a51a-7eed768b1323)
+两种方法均能返回正确的16进制string “0xaa”。证明我们调用库合约成功！
+
+###  2024.10.01
+
+複習
+**變量類型**
+   * 值類型: 布林、整數、地址、字節數組。直接傳遞數據。
+   * 引用類型: 字串、數組、結構體。只存指向數據的引用。
+      * 數組:
+        1. 固定長度array: 以`memory`修飾的動態數組，可用new創建，但必須宣告長度，且宣告後長度不能改變。
+        2. 可變長度array
+      * 結構體: 定義新的類型，裡面可以是值類型也可以是引用類型。本身也可作為數組或映射類型使用。
+   * 映射類型: mapping。只存在`stroage`。
+      * 透過key來查詢對應的value
+        
+**變量作用域**
+   * 狀態變量: 存在鏈上，合約內、函數外宣告，合約內函數皆可訪問，gas高。
+   * 局部變量: 存在記憶體上，函數內宣告，生命週期為函數執行期間，gas低。
+   * 全域變量: 在全域範圍工作，是Solidity預留的關鍵字，可不宣告就使用。
+      * eg. 乙太單位、時間單位
+     
+**函數**
+   * 需定義可見性: internal、external、public、private
+      * internal: 只能從本合約內部訪問，繼承的合約可使用。
+      * external: 只能從合約外部訪問(內部可通過`this.f()`調用)。
+      * public: 內外部均可見。
+      * private: 只能從本合約內部訪問，繼承的合約不可使用。
+   * 決定函數權限或功能: pure、view、payable
+      * pure: 不能讀也不能寫入鏈上
+      * view: 能讀不能寫入鏈上
+      * payable: 可支付的
+   * 返回: 命令式返回、解構式返回
+      * 命令式返回: `returns`中標明返回變量的名稱，會自動返回，不需使用return。
+      * 解構式返回: 聲明變量，將要賦值的變量用 , 隔開，依序排列。若是只讀取部分返回值，則留空。
+    
+###  2024.10.02
+**變量初始值**
+* 值类型初始值：
+   * boolean: false
+   * string: ""
+   * int: 0
+   * uint: 0
+   * enum: 枚举中的第一个元素
+   * address: 0x0000000000000000000000000000000000000000 (或 address(0))
+   * function
+   * internal: 空白函数
+   * external: 空白函数
+* 引用类型初始值：
+   * 映射mapping: 所有元素都为其默认值的mapping
+   * 结构体struct: 所有成员设为其默认值的结构体
+   * 数组array
+   * 动态数组: []
+   * 静态数组（定长）: 所有成员设为其默认值的静态数组
+
+**常數**
+    * `constant`跟`immutable`
+       * constant: 聲明時初始化，不可改變
+       * immutable: 聲明或在構造函數初始化，若同時，會採用構造函數的值。
+       
+**控制流**
+   * `if-else`、`for`、`while`、`do while`、三元運算子
+     
+**構造函數**
+   * constructor: 每個合約可定義一個，部屬合約時自動執行一次
+
+**修飾器**
+   * modifier: 聲明函數擁有的特性，主要用來在執行函數前的檢查。
+
+**事件**
+   * event: 是`EVM`上日記的抽象，有兩個特色:
+     1. 響應: 應用程式(ethers.js)可以透過RPC街口訂閱和監聽這些事件，並在前端做響應。
+     2. 經濟: 比較經濟的存數據方式，每個大概消耗2000gas，但鏈上存一個變量要消耗20000gas
+   * 聲明事件: event event_name( 變量類型 變量名, ... )
+   * 釋放事件: emit event event_name( 變量名, ... )
+
+**EVM日記 Log**
+   * 以太坊虛擬機(EVM)用日記`Log`來儲存Solidity事件，每條日記都包含主題`topics`和數據`data`兩部分
+     1. `topics`: 描述事件，長度不超過4，第一個元素是事件的簽名(哈希)，除了哈希還可以包含最多三個`indexed`參數，固定為256bits
+     2. `data`: event中不帶`indexed`的參數，即為事件的值。不能被直接搜尋，但可以存任意大小的數據，消耗的gas相對於topics`更少。
+
+###  2024.10.03
+
+**繼承**
+   * 規則:
+     1. `virtual`: 希望子合約重寫的函數，需要在父合約中加上`virtual`
+     2. `override`: 子合約重寫的函數要加上`override`。且用`override`修飾`public`變量，會重寫與變量同名的`getter`函數
+   * 簡單繼承: contract A is B，A是子合約，B是父合約
+   * 多重繼承:
+      * 規則:
+        1. 繼承時按照輩份最高到最低順序排
+        2. 某一個函數在多個繼承的合約裡都有，子合約就必須重寫
+        3. 重寫在多個父合約中都一樣名稱的函數時，`override`後面要加上所有父合約的名字。e.g. `override(A, B)`
+   * 修飾器的繼承: 跟函數繼承一樣，在對應的地方加`virtual`和`override`就好。
+   * 構造函數的繼承:
+     1. 在繼承時聲明父合約構造函數的參數
+     2. 在子合約的構造函數聲明構造函數的參數
+   * 調用父合約的函數:
+     1. 直接調用: `父合約名稱.函數名()`
+     2. `super`: `super.函數名()`
+   * 鑽石繼承: 一個派生類同時有兩個或兩個以上的基類。
+      * 使用`super`的話會調用繼承鏈條勝的每一個合約的相關函數，而非最近的父合約。
+   ```Solidity
+     /* 继承树：
+     God
+    /  \
+   Adam Eve
+    \  /
+   people
+   */
+   ```
+
+**抽象合约**
+   * 一個合約裡面至少有一個未實現的函數，必須將該合約標為`abstract`。
+   * 未實現的函數需加`virtual`，以便子合約重寫。
+
+**介面(接口)**
+   * 類似抽象合約，但不實現任何功能。
+   * 介面的規則：
+     1. 不能包含狀態變數。
+     2. 不能包含建構子。
+     3. 不能繼承除介面外的其他合約。
+     4. 所有函數都必須是external且不能有函數體。
+     5. 繼承介面的非抽象合約必須實作介面定義的所有功能。
+   * 介面是智慧合約的骨架，定義了合約的功能以及如何觸發它們。
+   * 如果智慧合約實現了某種介面（例如`ERC20`或`ERC721`），其他Dapps和智能合約就知道如何與它互動。因為介面提供了兩個重要的資訊：
+     1. 合約裡每個函數的`bytes4`選擇器，以及函數簽名`函數名(每個參數類型）`。
+     2. 接口id。
+   * 介面與合約`ABI`（Application Binary Interface）等價，可以互相轉換。
+   * 編譯介面可以得到合約的`ABI`，利用abi-to-sol工具，也可以將`ABI json`檔轉換為介面`sol`檔。
+
+**IERC721事件**
+
+   `IERC721`包含3個事件，其中`Transfer`和`Approval`事件在`ERC20`中也有。
+   1. `Transfer`事件：在轉帳時被釋放，記錄代幣的發出地址`from`，接收地址`to`和`tokenId`。
+   2. `Approval`事件：在授權時被釋放，記錄授權位址`owner`，被授權位址`approved`和`tokenId`。
+   3. `ApprovalForAll`事件：在批量授權時被釋放，記錄批量授權的發出地址`owner`，被授權地址`operator`和授權與否的`approved`。
+
+**IERC721函數**
+   1. `balanceOf`：傳回某地址的NFT持有量`balance`。
+   2. `ownerOf`：回傳某`tokenId`的主人`owner`。
+   3. `transferFrom`：普通轉賬，參數為轉出地址`from`，接收地址`to`和`tokenId`。
+   4. `safeTransferFrom`：安全轉帳（如果接收方是合約位址，會要求實作`ERC721Receiver`介面）。參數為轉出位址`from`，接收位址`to`和`tokenId`。
+   5. `approve`：授權另一個位址使用你的NFT。參數為被授權位址`approve`和`tokenId`。
+   6. `getApproved`：查詢`tokenId`被核准給了哪個位址。
+   7. `setApprovalForAll`：將自己持有的該系列NFT批次授權給某個位址`operator`。
+   8. `isApprovedForAll`：查詢某個位址的NFT是否批次授權給了另一個`operator`位址。
+   9. `safeTransferFrom`：安全轉帳的重載函數，參數裡麵包含了`data`。
+
+**什麼時候使用介面**
+   * 一個合約實現了`IERC721`接口，我們不需要知道它具體代碼實現，就可以與它交互。
+
+**異常**
+   * 檢查條件不成立的時候，就會拋出異常。
+   * Error
+      * 方便且有效率（省`gas`）地向使用者解釋操作失敗的原因
+      * 拋出例外的同時可攜帶參數
+      * 可以在`​​contract`之外定義異常
+      * `error`必須搭配`revert`（回退）指令使用。
+   * Require
+      * 唯一的缺點就是`gas`隨著描述異常的字串長度增加，比`error`指令要高。
+      * 使用方法：`require(檢查條件，"異常的描述")`
+   * Assert
+      * 一般用於程式設計師寫入程式`debug`
+      * 不能解釋拋出異常的原因（比`require`少個字串）
+      * 使用方法：`assert(檢查條件）`
 <!-- Content_END -->

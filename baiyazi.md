@@ -269,4 +269,216 @@ error必须搭配revert
 
 准备明天的预推免摸了
 
+### 2024.09.27
+
+**`Solidity`支持两种特殊的回调函数**，`receive()`和`fallback()`
+
+1.接收ETH
+
+2.处理合约中不存在的函数调用（代理合约proxy contract）
+
+接收ETH函数 receive
+
+`receive()`函数是在合约收到`ETH`转账时被调用的函数。一个合约最多有一个`receive()`函数
+
+回退函数 fallback
+
+`fallback()`函数会在调用合约不存在的函数时被触发。可用于接收ETH，也可以用于代理合约`proxy contract`
+
+receive和fallback的区别
+
+合约接收`ETH`时，`msg.data`为空且存在`receive()`时，会触发`receive()`；`msg.data`不为空或不存在`receive()`时，会触发`fallback()`，此时`fallback()`必须为`payable`。均不存在报错
+
+**`Solidity`有三种方法向其他合约发送`ETH`**，他们是：`transfer()`，`send()`和`call()`，其中`call()`是被鼓励的用法。
+
+**transfer：**
+
+1.用法是`接收方地址.transfer(发送ETH数额)`。
+
+2.`transfer()`的`gas`限制是`2300`，足够用于转账，但对方合约的`fallback()`或`receive()`函数不能实现太复杂的逻辑。
+
+3.`transfer()`如果转账失败，会自动`revert`（回滚交易）。
+
+**send：**
+
+1.用法是`接收方地址.send(发送ETH数额)`。
+
+2.`send()`的`gas`限制是`2300`，足够用于转账，但对方合约的`fallback()`或`receive()`函数不能实现太复杂的逻辑。
+
+3.`send()`如果转账失败，不会`revert`。
+
+4.`send()`的返回值是`bool`，代表着转账成功或失败，需要额外代码处理一下。
+
+**call：**
+
+1.用法是`接收方地址.call{value: 发送ETH数额}("")`。
+
+2.`call()`没有`gas`限制，可以支持对方合约`fallback()`或`receive()`函数实现复杂逻辑。
+
+3.`call()`如果转账失败，不会`revert`。
+
+4.`call()`的返回值是`(bool, bytes)`，其中`bool`代表着转账成功或失败，需要额外代码处理一下。
+
+调用已部署合约
+
+在`Solidity`中，一个合约可以调用另一个合约的函数，这在构建复杂的DApps时非常有用。
+
+1.传入合约地址
+
+2.传入合约变量
+
+3.创建合约变量
+
+4.调用合约并发送ETH
+
+### 2024.09.28
+
+**call：**
+
+`call` 是`address`类型的低级成员函数，它用来与其他合约交互。它的返回值为`(bool, bytes memory)`，分别对应`call`是否成功以及目标函数的返回值。
+
+`call`是`Solidity`官方推荐的通过触发`fallback`或`receive`函数发送`ETH`的方法。
+
+**delegatecall：**
+
+`delegatecall`与`call`类似，是`Solidity`中地址类型的低级成员函数。
+
+一个投资者（用户`A`）把他的资产（`B`合约的`状态变量`）都交给一个风险投资代理（`C`合约）来打理。执行的是风险投资代理的函数，但是改变的是资产的状态。
+
+目前`delegatecall`主要有两个应用场景：
+
+1.代理合约（`Proxy Contract`）：**将智能合约的存储合约和逻辑合约分开**：代理合约（`Proxy Contract`）存储所有相关的变量，并且保存逻辑合约的地址；所有函数存在逻辑合约（`Logic Contract`）里，通过`delegatecall`执行。当升级时，只需要将代理合约指向新的逻辑合约即可。
+
+2.EIP-2535 Diamonds（钻石）：钻石是一个支持构建可在生产中扩展的模块化智能合约系统的标准。钻石是具有多个实施合约的代理合约。
+
+两个合约变量存储布局必须相同
+
+B通过call来调用C的setVars()函数，将改变合约C里的状态变量
+
+B通过delegatecall来调用C的setVars()函数，将改变合约B里的状态变量
+
+### 2024.09.29
+
+在以太坊链上，用户（外部账户，`EOA`）可以创建智能合约，智能合约同样也可以创建新的智能合约。
+
+有两种方法可以在合约中创建新合约，`create`和`create2`
+
+`create`的用法很简单，就是`new`一个合约，并传入新合约构造函数所需的参数
+
+`CREATE2` 操作码使我们在智能合约部署在以太坊网络之前就能预测合约的地址
+
+`CREATE2`的用法和之前讲的`CREATE`类似，同样是`new`一个合约，并传入新合约构造函数所需的参数，只不过要多传一个`salt`参数
+
+#### 如果部署合约构造函数中存在参数
+
+计算时，需要将参数和initcode一起进行打包
+
+**create2的实际应用场景**
+
+1.交易所为新用户预留创建钱包合约地址。
+
+2.由 `CREATE2` 驱动的 `factory` 合约，在`Uniswap V2`中交易对的创建是在 `Factory`中调用`CREATE2`完成。这样做的好处是: 它可以得到一个确定的`pair`地址, 使得 `Router`中就可以通过 `(tokenA, tokenB)` 计算出`pair`地址, 不再需要执行一次 `Factory.getPair(tokenA, tokenB)` 的跨合约调用。
+
+**selfdestruct**
+
+`selfdestruct`命令可以用来删除智能合约，并将该合约剩余`ETH`转到指定地址。`selfdestruct`是为了应对合约出错的极端情况而设计的
+
+1.已经部署的合约无法被`SELFDESTRUCT`了。
+
+2.如果要使用原先的`SELFDESTRUCT`功能，必须在同一笔交易中创建并`SELFDESTRUCT`。
+
+**注意**
+
+1.对外提供合约销毁接口时，最好设置为只有合约所有者可以调用，可以使用函数修饰符`onlyOwner`进行函数声明。
+
+2.当合约中有`selfdestruct`功能时常常会带来安全问题和信任问题，合约中的selfdestruct功能会为攻击者打开攻击向量(例如使用`selfdestruct`向一个合约频繁转入token进行攻击，这将大大节省了GAS的费用，虽然很少人这么做)，此外，此功能还会降低用户对合约的信心。
+
+### 2024.09.30
+
+**ABI**是与以太坊智能合约交互的标准。数据基于他们的类型编码；并且由于编码后不包含类型信息，解码时需要注明它们的类型.
+
+`Solidity`中，`ABI编码`有4个函数：`abi.encode`, `abi.encodePacked`, `abi.encodeWithSignature`, `abi.encodeWithSelector`。而`ABI解码`有1个函数：`abi.decode`，用于解码`abi.encode`的数据。
+
+abi.encode
+
+将给定参数利用ABI规则编码。`ABI`被设计出来跟智能合约交互，他将每个参数填充为32字节的数据，并拼接在一起。如果要和合约交互，要用的就是`abi.encode`
+
+abi.encodePacked
+
+将给定参数根据其所需最低空间编码。它类似 `abi.encode`，但是会把其中填充的很多`0`省略。比如，只用1字节来编码`uint8`类型。当想省空间，并且不与合约交互的时候，可以使用`abi.encodePacked`
+
+abi.encodeWithSignature
+
+与`abi.encode`功能类似，只不过第一个参数为`函数签名`。当调用其他合约的时候可以使用。
+
+abi.encodeWithSignature
+
+与`abi.encodeWithSignature`功能类似，只不过第一个参数为`函数选择器`，为`函数签名`Keccak哈希的前4个字节。
+
+abi.decode
+
+`abi.decode`用于解码`abi.encode`生成的二进制编码，将它还原成原本的参数。
+
+`Keccak256`函数是`Solidity`中最常用的哈希函数
+
+### 2024.10.01
+
+**函数选择器**
+
+当我们调用智能合约时，本质上是向目标合约发送了一段`calldata`，发送的`calldata`中前4个字节是`selector`（函数选择器）。
+
+`calldata`就是告诉智能合约，我要调用哪个函数，以及参数是什么。
+
+`method id`定义为`函数签名`的`Keccak`哈希后的前4个字节，当`selector`与`method id`相匹配时，即表示调用该函数。在同一个智能合约中，不同的函数有不同的函数签名，因此我们可以通过函数签名来确定要调用哪个函数。
+
+映射类型参数通常有：`contract`、`enum`、`struct`等。在计算`method id`时，需要将该类型转化成为`ABI`类型。0
+
+**try-catch**
+
+在`Solidity`中，`try-catch`只能被用于`external`函数或创建合约时`constructor`（被视为`external`函数）的调用。
+
+### 2024.10.02
+
+**ERC20**
+
+`ERC20`是以太坊上的代币标准，它实现了代币转账的基本逻辑：
+
+账户余额(balanceOf())
+
+转账(transfer())
+
+授权转账(transferFrom())
+
+授权(approve())
+
+代币总供给(totalSupply())
+
+授权转账额度(allowance())
+
+代币信息（可选）：名称(name())，代号(symbol())，小数位数(decimals())
+
+**IERC20**
+
+`IERC20`是`ERC20`代币标准的接口合约，规定了`ERC20`代币需要实现的函数和事件。 之所以需要定义接口，是因为有了规范后，就存在所有的`ERC20`代币都通用的函数名称，输入参数，输出参数。 在接口函数中，只需要定义函数名称，输入参数，输出参数，并不关心函数内部如何实现。
+
+**代币水龙头**
+
+代币水龙头就是让用户免费领代币的网站/应用。
+
+### 2024.10.03
+
+**空投 Airdrop**
+
+空投是币圈中一种营销策略，项目方将代币免费发放给特定用户群体。为了拿到空投资格，用户通常需要完成一些简单的任务，如测试产品、分享新闻、介绍朋 友等。项目方通过空投可以获得种子用户，而用户可以获得一笔财富，两全其美。
+
+因为每次接收空投的用户很多，项目方不可能一笔一笔的转账。利用智能合约批量发放`ERC20`代币，可以显著提高空投效率
+
+**ERC165**
+
+智能合约可以声明它支持的接口，供其他合约检查
+
+**IERC721**
+
+`IERC721`是`ERC721`标准的接口合约，规定了`ERC721`要实现的基本函数。它利用`tokenId`来表示特定的非同质化代币，授权或转账都要明确tokenId
+
 <!-- Content_END -->

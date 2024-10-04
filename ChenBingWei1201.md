@@ -359,10 +359,462 @@ There are three types of variables in Solidity according to their scope: state v
   - `msg.value`: (`bytes4`) number of wei sent with the message
 
 #### Summary
-In this chapter, we learned reference types, data storage locations and variable scopes in Solidity. There are three types of data storage locations: `storage`, `memory` and `calldata`. Gas costs are different for different storage locations. The variable scope include state variables, local variables and global variables.
+In this chapter, I learned reference types, data storage locations and variable scopes in Solidity. There are three types of data storage locations: `storage`, `memory` and `calldata`. Gas costs are different for different storage locations. The variable scope include state variables, local variables and global variables.
 
 </details>
 
+
+### 2024.09.28
+<details>
+<summary>6. Array & Struct</summary>
+
+#### (1) Array (ref: 2024.09.24)
+An `array` is a variable type commonly used in Solidity to store a set of data (integers, bytes, addresses, etc.).
+
+There are two types of arrays: fixed-sized and dynamically-sized arrays.：
+- fixed-sized arrays: The length of the array is specified at the time of declaration. An `array` is declared in the format `T[k]`, where `T` is the element type and `k` is the length.
+```solidity
+    // fixed-length array
+    uint[8] array1;
+    byte[5] array2;
+    address[100] array3;
+```
+- Dynamically-sized array（dynamic array）：Length of the array is not specified during declaration. It uses the format of `T[]`, where `T` is the element type. 
+```solidity
+    // variable-length array
+    uint[] array4;
+    byte[] array5;
+    address[] array6;
+    bytes array7;
+```
+**Notice**: `bytes` is special case, it is a dynamic array, but you don't need to add `[]` to it. You can use either `bytes` or `bytes1[]` to declare byte array, but not `byte[]`. `bytes` is recommended and consumes less gas than `bytes1[]`.
+
+#### Rules for creating arrays
+- For a `memory` dynamic array, it can be created with the `new` operator, but the length must be declared, and the length cannot be changed after the declaration. For example：
+```solidity
+    // memory dynamic array
+    uint[] memory array8 = new uint[](5);
+    bytes memory array9 = new bytes(9);
+```
+- Array literal are arrays in the form of one or more expressions, and are not immediately assigned to variables; such as `[uint(1),2,3]` (the type of the first element needs to be declared, otherwise the type with the smallest storage space is used by default).
+- When creating a dynamic array, you need an element-by-element assignment.
+```solidity
+    uint[] memory x = new uint[](3);
+    x[0] = 1;
+    x[1] = 3;
+    x[2] = 4;
+```
+
+#### Members of Array
+- `length`: Arrays have a `length` member containing the number of elements, and the length of a `memory` array is fixed after creation.
+- `push()`: Dynamic arrays have a `push()` member function that adds a `0` element at the end of the array.
+- `push(x)`: Dynamic arrays have a `push(x)` member function, which can add an `x` element at the end of the array.
+- `pop()`: Dynamic arrays have a `pop()` member that removes the last element of the array.
+
+#### (2) Struct
+You can define new types in the form of `struct` in Solidity. Elements of `struct` can be primitive types or reference types. And `struct` can be the element for `array` or `mapping`.
+```solidity
+    // struct
+    struct Student{
+        uint256 id;
+        uint256 score; 
+    }
+
+    Student student; // Initially a student structure
+```
+There are 4 ways to assign values to `struct`:
+```solidity
+     // Method 1: Directly refer to the struct of the state variable
+    function initStudent1() external{
+        student.id = 1;
+        student.score = 80;
+    }
+```
+```solidity
+    // Method 2: struct constructor
+    function initStudent2() external {
+        student = Student(3, 90);
+    }
+    
+    // Method 3: key value
+    function initStudent3() external {
+        student = Student({id: 4, score: 60});
+    }
+```
+```solidity
+    // assign value to structure
+    // Method 4: Create a storage struct reference in the function
+    function initStudent4() external{
+        Student storage _student = student; // assign a copy of student
+        _student.id = 11;
+        _student.score = 100;
+    }
+```
+
+#### Summary
+In this lecture, I learned the basic usage of `array` and `struct` in Solidity.
+
+</details>
+
+<details>
+<summary>7. Mapping</summary>
+
+#### Mapping (ref: 2024.09.24)
+With `mapping` type, people can query the corresponding `Value` by using a `Key`. For example, a person's wallet address can be queried by their `id`.
+
+The format of declaring the `mapping` is `mapping(_KeyType => _ValueType)`, where `_KeyType` and `_ValueType` are the variable types of `Key` and `Value` respectively. For example:
+```solidity
+    mapping(uint => address) public idToAddress; // id maps to address
+    mapping(address => address) public swapPair; // mapping of token pairs, from address to address
+```
+
+#### Rules of `mapping`
+- **Rule 1**: The `_KeyType` should be selected among default types in solidity such as `uint`, `address`, etc. **No custom `struct` can be used**. However, `_ValueType` can be any custom types. The following example will throw an **error**, because `_KeyType` uses a custom struct:
+```solidity
+      // define a struct
+      struct Student {
+          uint256 id;
+          uint256 score;
+      }
+      mapping(Student => uint) public testVar;
+```
+- **Rule 2**: The storage location of the mapping must be `storage`: it can serve as the state variable or the `storage` variable inside function. But it can't be used in arguments or return results of `public` function.
+- **Rule 3**: If the mapping is declared as `public` then Solidity will automatically create a `getter` function for you to query for the `Value` by the `Key`.
+- **Rule 4**： The syntax of adding a key-value pair to a mapping is `_Var[_Key] = _Value`, where `_Var` is the name of the mapping variable, and `_Key` and `_Value` correspond to the new key-value pair. For example:
+```solidity
+    function writeMap(uint _Key, address _Value) public {
+        idToAddress[_Key] = _Value;
+    }
+```
+#### Principle of `mapping`
+- Principle 1: The mapping does not store any `key` information or length information.
+- Principle 2: Mapping use `keccak256(key)` as offset to access value.
+- Principle 3: Since Ethereum defines all unused space as `0`, all `key` that are not assigned a value will have an initial value of `0`.
+
+#### Summary
+In this section，I learned the `mapping` type in Solidity. So far, we've learned all kinds of common variables.
+
+</details>
+
+### 2024.10.01
+<details>
+<summary>8. Initial Value</summary>
+
+#### Initial values of variables
+In Solidity, variables declared but not assigned have their initial/default values.
+
+##### Initial values of value types
+- `boolean`: `false`
+- `string`: `""`
+- `int`: `0`
+- `uint`: `0`
+- `enum`: first element in enumeration
+- `address`: `0x0000000000000000000000000000000000000000` (or `address(0)`)
+- `function`
+  - `internal`: blank function
+  - `external`: blank function
+You can use `getter` function of `public` variables to confirm the above initial values:
+```solidity
+    bool public _bool; // false
+    string public _string; // ""
+    int public _int; // 0
+    uint public _uint; // 0
+    address public _address; // 0x0000000000000000000000000000000000000000
+
+    enum ActionSet {Buy, Hold, Sell}
+    ActionSet public _enum; // first element 0
+
+    function fi() internal{} // internal blank function
+    function fe() external{} // external blank function
+```
+##### Initial values of reference types
+- `mapping`: a `mapping` which all members set to their default values
+- `struct`: a `struct` which all members set to their default values
+- `array`
+  - dynamic array: `[]`
+  - static array（fixed-length): a static array where all members set to their default values.
+
+You can use `getter` function of `public` variables to confirm initial values:
+```solidity
+    // reference types
+    uint[8] public _staticArray; // a static array which all members set to their default values[0,0,0,0,0,0,0,0]
+    uint[] public _dynamicArray; // `[]`
+    mapping(uint => address) public _mapping; // a mapping which all members set to their default values
+    // a struct which all members set to their default values 0, 0
+    struct Student{
+        uint256 id;
+        uint256 score; 
+    }
+    Student public student;
+```
+
+##### `delete` operator
+`delete a` will change the value of variable `a` to its initial value.
+```solidity
+    // delete operator
+    bool public _bool2 = true; 
+    function d() external {
+        delete _bool2; // delete will make _bool2 change to default(false)
+    }
+```
+
+#### Summary
+In this section, I learned the initial values of variables in Solidity. When a variable is declared but not assigned, its value defaults to the initial value, which is equivalent as 0 represented in its type. The delete operator can reset the value of the variable to the initial value.
+
+</details>
+
+<details>
+<summary>9. Constant and Immutable</summary>
+
+If a state variable is declared with `constant` or `immutable`, its value cannot be modified after contract compilation.
+
+Value-typed variables can be declared as constant and immutable; string and bytes can be declared as constant, but not immutable.
+#### constant and immutable
+
+##### constant
+`constant` variable must be initialized during declaration and cannot be changed afterwards. Any modification attempt will result in error at compilation. 
+```solidity
+    // The constant variable must be initialized when declared and cannot be changed after that
+    uint256 constant CONSTANT_NUM = 10;
+    string constant CONSTANT_STRING = "0xAA";
+    bytes constant CONSTANT_BYTES = "WTF";
+    address constant CONSTANT_ADDRESS = 0x0000000000000000000000000000000000000000;
+```
+##### immutable
+The `immutable` variable can be initialized during declaration or in the constructor, which is more flexible.
+```solidity
+    // The immutable variable can be initialized in the constructor and cannot be changed later
+    uint256 public immutable IMMUTABLE_NUM = 9999999999;
+    address public immutable IMMUTABLE_ADDRESS;
+    uint256 public immutable IMMUTABLE_BLOCK;
+    uint256 public immutable IMMUTABLE_TEST;
+```
+You can initialize the `immutable` variable using a global variable such as `address(this)`, `block.number`, or a custom function. In the following example, we use the `test()` function to initialize the `IMMUTABLE_TEST` variable to a value of `9`:
+```solidity
+    // The immutable variables are initialized with constructor, so that could use
+    constructor(){
+        IMMUTABLE_ADDRESS = address(this);
+        IMMUTABLE_BLOCK = block.number;
+        IMMUTABLE_TEST = test();
+    }
+
+    function test() public pure returns(uint256){
+        uint256 what = 9;
+        return(what);
+    }
+```
+#### Summary
+In this section, I learned two keywords to restrict modifications to their state in Solidity: `constant` and `immutable`. They keep the variables that should not be changed unchanged. It will help to save gas while improving the contract's security.
+
+#### Test
+2. In the following variable definition statement, the one that will report an error is:
+  (a) `string constant x5 = "hello world";`
+
+  (b) `address constant x6 = address(0);`
+
+  (c) `string immutable x7 = "hello world";`
+
+  (d) `address immutable x8 = address(0);`
+
+<details>
+<summary>answer</summary>
+
+(d) The `immutable` keyword can only be applied to state variables that are assigned once during contract construction. This means you cannot initialize an `immutable` variable with a value at the time of declaration like you're doing here.
+
+Instead, you should assign the value of an immutable variable inside the constructor. Here’s an example of how you can do it correctly:
+```solidity
+pragma solidity ^0.8.0;
+
+contract Example {
+    string public immutable x7;
+
+    constructor() {
+        x7 = "hello world";
+    }
+}
+```
+But why (b) is correct?
+Because `immutable` variables in Solidity can be assigned either inside the `constructor` or at the time of declaration, but only when they are assigned a constant or known value (like `address(0)`).
+
+Since address(0) is a constant value, this is allowed. Immutable variables just need to be set at some point during the contract's construction process, whether it's in the constructor or during declaration.
+```solidity
+pragma solidity ^0.8.0;
+
+contract Example {
+    address public immutable x8 = address(0);
+}
+```
+This works because `address(0)` is a known constant value, and you're assigning it at the time of declaration.
+
+</details>
+
+</details>
+
+### 2024.10.02
+<details>
+<summary>10. Control Flow</summary>
+
+#### Control Flow
+Solidity's control flow is similar to other languages, mainly including the following components:
+
+1. `if`-`else`
+```solidity
+function ifElseTest(uint256 _number) public pure returns(bool){
+    if(_number == 0){
+    return(true);
+    }else{
+    return(false);
+    }
+}
+```
+2. `for` loop
+```solidity
+function forLoopTest() public pure returns(uint256){
+    uint sum = 0;
+    for(uint i = 0; i < 10; i++){
+    sum += i;
+    }
+    return(sum);
+}
+```
+3. `while` loop
+```solidity
+function whileTest() public pure returns(uint256){
+    uint sum = 0;
+    uint i = 0;
+    while(i < 10){
+    sum += i;
+    i++;
+    }
+    return(sum);
+}
+```
+4. `do-while` loop
+```solidity
+function doWhileTest() public pure returns(uint256){
+    uint sum = 0;
+    uint i = 0;
+    do{
+    sum += i;
+    i++;
+    }while(i < 10);
+    return(sum);
+}
+```
+5. Conditional (`ternary`) operator
+
+The `ternary` operator is the only operator in Solidity that accepts three operands：a condition followed by a question mark (`?`), then an expression `x` to execute if the condition is true followed by a colon (`:`), and finally the expression `y` to execute if the condition is false: `condition ? x : y`.
+
+This operator is frequently used as an alternative to an `if`-`else` statement.
+
+// ternary/conditional operator
+function ternaryTest(uint256 x, uint256 y) public pure returns(uint256){
+    // return the max of x and y
+    return x >= y ? x: y; 
+}
+
+In addition, there are `continue` (immediately enter the next loop) and `break` (break out of the current loop) keywords that can be used.
+
+#### Solidity Implementation of Insertion Sort
+
+##### Insertion Sort
+
+The sorting algorithm solves the problem of arranging an unordered set of numbers from small to large, for example, sorting `[2, 5, 3, 1]` to `[1, 2, 3, 5]`. Insertion Sort (InsertionSort) is the simplest and first sorting algorithm that most developers learn in their computer science class. The logic of InsertionSort:
+1. from the beginning of the array x to the end, compare the element x[i] with the element in front of it x[i-1]; if x[i] is smaller, switch their positions, compare it with x[i-2], and continue this process. 
+
+##### Solidity Implementation (with Bug)
+Python version of Insertion Sort takes up 9 lines. Let's rewrite it into Solidity by replacing `functions`, `variables`, and `loops` with solidity syntax accordingly. It only takes up 9 lines of code:
+```solidity
+    // Insertion Sort (Wrong version）
+    function insertionSortWrong(uint[] memory a) public pure returns(uint[] memory) {
+        for (uint i = 1;i < a.length;i++){
+            uint temp = a[i];
+            uint j=i-1;
+            while( (j >= 0) && (temp < a[j])){
+                a[j+1] = a[j];
+                j--;
+            }
+            a[j+1] = temp;
+        }
+        return(a);
+    }
+```
+But when we compile the modified version and try to sort `[2, 5, 3, 1]`. BOOM! There are bugs! After 3-hour debugging, I still could not find where the bug was. I googled "Solidity insertion sort", and found that all the insertion algorithms written with Solidity are all wrong, such as: [Sorting in Solidity without Comparison](https://medium.com/coinmonks/sorting-in-solidity-without-comparison-4eb47e04ff0d)
+
+##### Solidity Implementation (Correct)
+
+The most commonly used variable type in Solidity is `uint`, which represent a non-negative integer. If it takes a negative value, we will encounter an `underflow` error. In the above code, the variable `j` will get `-1`, causing the bug.
+
+So, we need to add `1` to `j` so it can never take a negative value. The correct insertion sort solidity code:
+```solidity
+    // Insertion Sort（Correct Version）
+    function insertionSort(uint[] memory a) public pure returns(uint[] memory) {
+        // note that uint can not take negative value
+        for (uint i = 1;i < a.length;i++){
+            uint temp = a[i];
+            uint j=i;
+            while( (j >= 1) && (temp < a[j-1])){
+                a[j] = a[j-1];
+                j--;
+            }
+            a[j] = temp;
+        }
+        return(a);
+    }
+```
+
+#### Summary
+
+In this lecture, I learned control flow in Solidity and wrote a simple but bug-prone sorting algorithm. Solidity looks simple but have many traps. Every month, projects get hacked and lose millions of dollars because of small bugs in the smart contract. To write a safe contract, we need to master the basics of the Solidity and keep practicing.
+
+</details>
+
+### 2024.10.03
+<details>
+<summary>11. Constructor & Modifier</summary>
+
+#### Constructor
+`constructor` is a special function, which will automatically run once during contract deployment. Each contract can have one `constructor`. It can be used to initialize parameters of a contract, such as an `owner` address:
+```solidity
+   address owner; // define owner variable
+
+   // constructor
+   constructor() {
+      owner = msg.sender; //  set owner to the deployer address
+   }
+```
+Note: The syntax of `constructor` in solidity is not consistent for different versions: Before `solidity 0.4.22`, constructors did not use the `constructor` keyword. Instead, the constructor had the same name as the contract name. This old syntax is prone to mistakes: the developer may mistakenly name the contract as `Parents`, while the constructor as `parents`. So in `0.4.22` and later version, the new `constructor` keyword is used. Example of constructor prior to `solidity 0.4.22`:
+```solidity
+pragma solidity = 0.4.21;
+contract Parents {
+    // The function with the same name as the contract name(Parents) is constructor
+    function Parents () public {
+    }
+}
+```
+
+#### Modifier
+`modifier` is similar to `decorator` in object-oriented programming, which is used to declare dedicated properties of functions and reduce code redundancy. `modifier` is Iron Man Armor for functions: the function with `modifier` will have some magic properties. The popular use case of `modifier` is restrict the access of functions.
+
+Let's define a `modifier` called onlyOwner, functions with it can only be called by `owner`:
+```solidity
+   // define modifier
+   modifier onlyOwner {
+      require(msg.sender == owner); // check whether caller is address of owner
+      _; // execute the function body
+   }
+```
+Next, let us define a `changeOwner` function, which can change the `owner` of the contract. However, due to the `onlyOwner` modifier, only original `owner` is able to call it. This is the most common way of access control in smart contracts.
+```solidity
+   function changeOwner(address _newOwner) external onlyOwner{
+      owner = _newOwner; // only owner address can run this function and change owner
+   }
+```
+
+#### Summary
+In this lecture, I learned `constructor` and `modifier` in Solidity, and wrote an `Ownable` contract that controls access of the contract.
+
+</details>
 
 ###
 

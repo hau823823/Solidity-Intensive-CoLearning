@@ -158,15 +158,300 @@ Solidity中的变量类型
 
 
 
+### 2024.09.27
+
+Pure 和View
+
+
+solidity 引入这两个关键字主要是因为 以太坊交易需要支付气费（gas fee）。
+
+合约的状态变量存储在链上，gas fee 很贵，如果计算不改变链上状态，就可以不用付 gas。
+
+包含 pure 和 view 关键字的函数是不改写链上状态的，因此用户直接调用它们是不需要付 gas 的（注意，合约中非 pure/view 函数调用 pure/view 函数时需要付gas。
+
+在以太坊中，以下语句被视为修改链上状态：
+
+写入状态变量。
+
+1、释放事件。
+
+2、创建其他合约。
+
+3、使用 selfdestruct.
+
+4、通过调用发送以太币。
+
+5、调用任何未标记 view 或 pure 的函数。
+
+6、使用低级调用（low-level calls）。
+
+7、使用包含某些操作码的内联汇编。
 
 
 
 
+![image](https://github.com/user-attachments/assets/e7484a57-a664-4b6d-8c50-c7132aa9d6f1)
+
+在这幅插图中，将合约中的状态变量（存储在链上）比作碧琪公主，三种不同的角色代表不同的关键字
+
+1、pure，中文意思是“纯”，这里可以理解为”纯打酱油的”。pure 函数既不能读取也不能写入链上的状态变量。就像小怪一样，看不到也摸不到碧琪公主。
+
+2、view，“看”，这里可以理解为“看客”。view函数能读取但也不能写入状态变量。类似马里奥，能看到碧琪公主，但终究是看客，不能入洞房。
+
+3、非 pure 或 view 的函数既可以读取也可以写入状态变量。类似马里奥里的 boss，可以对碧琪公主为所欲为。
+
+
+pure 和 view 关键字比较难理解，在其他语言中没出现过：view 函数可以读取状态变量，但不能改写；pure 函数既不能读取也不能改写状态变量
+
+### 2024.09.29
+
+
+ 函数输出
+
+Solidity 中与函数输出相关的有两个关键字：return和returns。它们的区别在于：
+
+returns：跟在函数名后面，用于声明返回的变量类型及变量名。
+
+return：用于函数主体中，返回指定的变量。
+
+在上述代码中，我们利用 returns 关键字声明了有多个返回值的 returnMultiple() 函数，然后我们在函数主体中使用 return(1, true, [uint256(1),2,5]) 确定了返回值。
+
+这里uint256[3]声明了一个长度为3且类型为uint256的数组作为返回值。因为[1,2,3]会默认为uint8(3)，因此[uint256(1),2,5]中首个元素必须强转uint256来声明该数组内的元素皆为此类型。数组类型返回值默认必须用memory修饰，在下一个章节会细说变量的存储和作用域。
+
+命名式返回
+我们可以在 returns 中标明返回变量的名称。Solidity 会初始化这些变量，并且自动返回这些函数的值，无需使用 return。
+
+
+Solidity 支持使用解构式赋值规则来读取函数的全部或部分返回值。
+
+读取所有返回值：声明变量，然后将要赋值的变量用,隔开，按顺序排列。
+
+###  2024.09.30
+
+变量数据存储和作用域 storage/memory/calldata
+
+引用类型(Reference Type)：包括数组（array）和结构体（struct），由于这类变量比较复杂，占用存储空间大，我们在使用时必须要声明数据存储的位置。
+
+数据位置
+
+Solidity数据存储位置有三类：storage，memory和calldata。不同存储位置的gas成本不同。storage类型的数据存在链上，类似计算机的硬盘，消耗gas多；memory和calldata类型的临时存在内存里，消耗gas少
+
+大致用法：
+
+storage：合约里的状态变量默认都是storage，存储在链上。
+
+memory：函数里的参数和临时变量一般用memory，存储在内存中，不上链。尤其是如果返回数据类型是变长的情况下，必须加memory修饰，例如：string, bytes, array和自定义结构。
+
+calldata：和memory类似，存储在内存中，不上链
+
+与memory的不同点在于calldata变量不能修改（immutable），一般用于函数的参数。
+
+数据位置和赋值规则
+
+在不同存储类型相互赋值时候，有时会产生独立的副本（修改新变量不会影响原变量），有时会产生引用（修改新变量会影响原变量）。规则如下：
+
+赋值本质上是创建引用指向本体，因此修改本体或者是引用，变化可以被同步：
+
+memory赋值给memory，会创建引用，改变新变量会影响原变量。
+
+其他情况下，赋值创建的是本体的副本，即对二者之一的修改，并不会同步到另一方
+
+变量的作用域
+
+Solidity中变量按作用域划分有三种，分别是状态变量（state variable），局部变量（local variable）和全局变量(global variable)
+
+1. 状态变量
+状态变量是数据存储在链上的变量，所有合约内函数都可以访问，gas消耗高。
+
+2. 局部变量
+局部变量是仅在函数执行过程中有效的变量，函数退出后，变量无效。局部变量的数据存储在内存里，不上链，gas低。
+
+3.全局变量是全局范围工作的变量，都是solidity预留关键字。
+
+
+4. 全局变量-以太单位与时间单位
+   
+以太单位
+
+Solidity中不存在小数点，以0代替为小数点，来确保交易的精确度，并且防止精度的损失，利用以太单位可以避免误算的问题，方便程序员在合约中处理货币交易
+
+wei: 1
+
+gwei: 1e9 = 1000000000
+
+ether: 1e18 = 1000000000000000000
 
 
 
 
+可以在合约中规定一个操作必须在一周内完成，或者某个事件在一个月后发生。这样就能让合约的执行可以更加精确，不会因为技术上的误差而影响合约的结果。因此，时间单位在Solidity中是一个重要的概念，有助于提高合约的可读性和可维护性。
 
+seconds: 1
+
+minutes: 60 seconds = 60
+
+hours: 60 minutes = 3600
+
+days: 24 hours = 86400
+
+weeks: 7 days = 604800
+
+在这一讲，我们介绍了Solidity中的引用类型，数据位置和变量的作用域。重点是storage, memory和calldata三个关键字的用法。他们出现的原因是为了节省链上有限的存储空间和降低gas
+
+
+引用类型, array, struct
+
+
+
+###  2024.10.01
+
+引用类型, array, struct
+
+Solidity中的两个重要变量类型：数组（array）和结构体（struct）
+
+数组（Array）是Solidity常用的一种变量类型，用来存储一组数据（整数，字节，地址等等）。数组分为固定长度数组和可变长度数组两种：
+
+可变长度数组（动态数组）：在声明时不指定数组的长度。用T[]的格式声明，其中T是元素的类型，
+
+注意：bytes比较特殊，是数组，但是不用加[]。另外，不能用byte[]声明单字节数组，可以使用bytes或bytes1[]。bytes 比 bytes1[] 省gas。
+
+创建数组的规则
+
+在Solidity里，创建数组有一些规则：
+
+对于memory修饰的动态数组，可以用new操作符来创建，但是必须声明长度，并且声明后长度不能改变。
+
+数组字面常数(Array Literals)是写作表达式形式的数组，用方括号包着来初始化array的一种方式，并且里面每一个元素的type是以第一个元素为准的，例如[1,2,3]里面所有的元素都是uint8类型，因为在Solidity中，如果一个值没有指定type的话，会根据上下文推断出元素的类型，默认就是最小单位的type，这里默认最小单位类型是uint8。而[uint(1),2,3]里面的元素都是uint类型，因为第一个元素指定了是uint类型了，里面每一个元素的type都以第一个元素为准。
+
+
+数组成员
+
+length: 数组有一个包含元素数量的length成员，memory数组的长度在创建后是固定的。
+
+push(): 动态数组拥有push()成员，可以在数组最后添加一个0元素，并返回该元素的引用。
+
+push(x): 动态数组拥有push(x)成员，可以在数组最后添加一个x元素。
+
+pop(): 动态数组拥有pop()成员，可以移除数组最后一个元素
+
+结构体 struct
+
+Solidity支持通过构造结构体的形式定义新的类型。结构体中的元素可以是原始类型，也可以是引用类型；结构体可以作为数组或映射的元素。创建结构体的方法：
+
+给结构体赋值的四种方法：
+
+ 给结构体赋值
+
+方法1:在函数中创建一个storage的struct引用
+
+方法2:直接引用状态变量的struct
+
+方法3:构造函数式
+
+方法4:key value
+
+
+###  2024.10.02
+
+映射（Mapping）类型，Solidity中存储键值对的数据结构，可以理解为哈希表。
+
+映射Mapping
+在映射中，人们可以通过键（Key）来查询对应的值（Value），比如：通过一个人的id来查询他的钱包地址。
+
+声明映射的格式为mapping(_KeyType => _ValueType)，其中_KeyType和_ValueType分别是Key和Value的变量类型
+
+映射的规则
+规则1：映射的_KeyType只能选择Solidity内置的值类型，比如uint，address等，不能用自定义的结构体。
+
+规则2：映射的存储位置必须是storage，因此可以用于合约的状态变量，函数中的storage变量和library函数的参数（见例子）。不能用于public函数的参数或返回结果中，因为mapping记录的是一种关系 (key - value pair)。
+
+规则3：如果映射声明为public，那么Solidity会自动给你创建一个getter函数，可以通过Key来查询对应的Value。
+
+规则4：给映射新增的键值对的语法为_Var[_Key] = _Value，其中_Var是映射变量名，_Key和_Value对应新增的键值对
+
+映射的原理
+原理1: 映射不储存任何键（Key）的资讯，也没有length的资讯。
+
+原理2: 映射使用keccak256(abi.encodePacked(key, slot))当成offset存取value，其中slot是映射变量定义所在的插槽位置。
+
+原理3: 因为Ethereum会定义所有未使用的空间为0，所以未赋值（Value）的键（Key）初始值都是各个type的默认值，如uint的默认值是0。
+
+###  2024.10.03
+
+变量初始值
+
+
+在Solidity中，声明但没赋值的变量都有它的初始值或默认值
+
+boolean: false
+
+string: ""
+
+int: 0
+
+uint: 0
+
+enum: 枚举中的第一个元素
+
+address: 0x0000000000000000000000000000000000000000 (或 address(0))
+
+function
+
+internal: 空白函数
+
+external: 空白函数
+
+bool public _bool; // false
+string public _string; // ""
+int public _int; // 0
+uint public _uint; // 0
+address public _address; // 0x0000000000000000000000000000000000000000
+
+    enum ActionSet { Buy, Hold, Sell} 
+    
+    ActionSet public _enum; // 第1个内容Buy的索引0
+
+    function fi() internal{} // internal空白函数
+    
+    function fe() external{} // external空白函数 
+
+
+    引用类型初始值
+映射mapping: 所有元素都为其默认值的mapping
+
+结构体struct: 所有成员设为其默认值的结构体
+
+数组array
+
+动态数组: []
+
+静态数组（定长）: 所有成员设为其默认值的静态数组
+
+
+可以用public变量的getter函数验证上面写的初始值是否正确：
+
+    // Reference Types
+
+    uint[8] public _staticArray; // 所有成员设为其默认值的静态数组[0,0,0,0,0,0,0,0]
+
+    uint[] public _dynamicArray; // `[]`
+
+    mapping(uint => address) public _mapping; // 所有元素都为其默认值的mapping
+
+    // 所有成员设为其默认值的结构体 0, 0
+    struct Student{
+    uint256 id;
+    uint256 score; 
+    }
+    Student public student;
+
+ delete操作符
+    
+delete a会让变量a的值变为初始值。
+
+变量被声明但没有赋值的时候，它的值默认为初始值。不同类型的变量初始值不同，delete操作符可以删除一个变量的值并代替为初始值。
+
+###  2024.10.03
 
 
 

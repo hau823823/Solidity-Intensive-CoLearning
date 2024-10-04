@@ -56,7 +56,11 @@ Yes 75%
 
     15. 异常
 
-Solidity 102
+的学习
+
+### 2024.09.25
+
+完成了 Solidity 102
 
     16. 函数重载
 
@@ -91,5 +95,63 @@ Solidity 102
     25. Create2
 
 的学习
+
+### 2024.09.28
+
+完成了 Solidity 102
+
+    26. 删除合约
+
+    27. ABI编码解码
+
+的学习
+
+### 2024.09.29
+
+完成了 Solidity 102
+
+    28. Hash
+
+    29. 函数选择器Selector
+
+    30. Try Catch
+
+的学习
+
+### 2024.09.30
+
+完成了 Solidity 103
+
+    31. ERC20
+
+    32. 代币水龙头
+
+    33. 空投合约
+
+的学习
+
+### 2024.10.01
+
+完成了 Solidity 103
+
+    34. ERC721
+
+    35. 荷兰拍卖
+
+    36. 默克尔树
+
+的学习
+
+### 2024.10.02
+
+Add source codes for 36.MerkleTree and its tests
+
+### 2024.10.03
+
+Add source codes for 35.DutchAuction and its tests
+
+### 2024.10.04
+
+Add source codes for 36.MerkleTree_v2 and its tests
 
 <!-- Content_END -->

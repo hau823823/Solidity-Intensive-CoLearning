@@ -266,5 +266,405 @@ PART 12
 4.	indexed关键字可以修饰任意类型的变量：错误
 5.	下列可以查询事件的是：Etherscan
 
+### 2024.09.26
+
+章节13——15
+
+笔记：
+
+继承（inheritance），包括简单继承，多重继承，以及修饰器（Modifier）和构造函数（Constructor）的继承。继承用is来表示，如：contract B is A。
+virtual: 父合约中的函数，如果希望子合约重写，需要加上virtual关键字。
+override：子合约重写了父合约中的函数，需要加上override关键字。
+多重继承中，is后接的顺序按最原始父辈的开始扩展，如：contract erzi is yeye,baba。如果某一个函数在多个继承的合约里都存在，在子合约里必须重写，否则会报错。重写在多个父合约中都重名的函数时，override关键字后面要加上所有父合约名字，但不强制要求顺序。
+```
+// 多重继承中，is后接的顺序按最原始父辈的开始扩展
+contract Erzi is Yeye, Baba{
+    // 继承两个function: hip()和pop()，输出值为Erzi。
+    // 重写了在Yeye,Baba的两个函数，override后标注出来，但不做顺序要求
+    function hip() public virtual override(Yeye, Baba){
+        emit Log("Erzi");
+    }
+
+    function pop() public virtual override(Yeye, Baba) {
+        emit Log("Erzi");
+    }
+}
+```
+```
+// 修饰器的继承
+contract Base1 {
+    modifier exactDividedBy2And3(uint _a) virtual {
+        require(_a % 2 == 0 && _a % 3 == 0);
+        _;
+    }
+}
+
+contract Identifier is Base1 {
+
+    //计算一个数分别被2除和被3除的值，但是传入的参数必须是2和3的倍数
+    function getExactDividedBy2And3(uint _dividend) public exactDividedBy2And3(_dividend) pure returns(uint, uint) {
+        return getExactDividedBy2And3WithoutModifier(_dividend);
+    }
+
+    //计算一个数分别被2除和被3除的值
+    function getExactDividedBy2And3WithoutModifier(uint _dividend) public pure returns(uint, uint){
+        uint div2 = _dividend / 2;
+        uint div3 = _dividend / 3;
+        return (div2, div3);
+    }
+}
+```
+```
+// 构造函数的继承
+abstract contract A {
+    uint public a;
+
+    constructor(uint _a) {
+        a = _a;
+    }
+}
+// 在继承时声明父构造函数的参数
+contract B is A(1)
+// 在子合约的构造函数中声明构造函数的参数
+contract C is A {
+    constructor(uint _c) A(_c * _c) {}
+}
+```
+子合约调用父合约函数：直接调用和利用super关键字调用（super只会调用最近的父辈合约，在钻石继承（也就是菱形结构的继承中，super会调用继承链条上的每一个合约的相关函数,并且按照最近的父辈到最原始的父辈的顺序））。
+```
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+/* 继承树：
+  God
+ /  \
+Adam Eve
+ \  /
+people
+*/
+
+contract God {
+    event Log(string message);
+
+    function foo() public virtual {
+        emit Log("God.foo called");
+    }
+
+    function bar() public virtual {
+        emit Log("God.bar called");
+    }
+}
+
+contract Adam is God {
+    function foo() public virtual override {
+        emit Log("Adam.foo called");
+        super.foo();
+    }
+
+    function bar() public virtual override {
+        emit Log("Adam.bar called");
+        super.bar();
+    }
+}
+
+contract Eve is God {
+    function foo() public virtual override {
+        emit Log("Eve.foo called");
+        super.foo();
+    }
+
+    function bar() public virtual override {
+        emit Log("Eve.bar called");
+        super.bar();
+    }
+}
+
+contract people is Adam, Eve {
+    function foo() public override(Adam, Eve) {
+        super.foo();
+    }
+
+    function bar() public override(Adam, Eve) {
+        super.bar();
+    }
+}
+```
+如果一个智能合约里至少有一个未实现的函数，即某个函数缺少主体{}中的内容，则必须将该合约标为abstract，不然编译会报错；另外，未实现的函数需要加virtual，以便子合约重写。
+
+接口类似于抽象合约，但它不实现任何功能。接口的规则：
+
+1.不能包含状态变量
+2.不能包含构造函数
+3.不能继承除接口外的其他合约
+4.所有函数都必须是external且不能有函数体
+5.继承接口的非抽象合约必须实现接口定义的所有功能
+
+接口提供了两个重要的信息：合约里每个函数的bytes4选择器，以及函数签名函数名(每个参数类型);接口id。
+接口与合约ABI（Application Binary Interface）等价，可以相互转换。
+
+error是solidity 0.8.4版本新加的内容，方便且高效（省gas）地向用户解释操作失败的原因，同时还可以在抛出异常的同时携带参数，且可以在constract之外定义。在执行当中，error必须搭配revert（回退）命令使用。
+require命令是solidity 0.8版本之前抛出异常的常用方法，gas随着描述异常的字符串长度增加，比error命令要高。使用方法：require(检查条件，"异常的描述")。
+assert使用方法：assert(检查条件）。
+
+gas消耗；require > error（带参数）> assert > error(不带参数)。
+```
+error TransferNotOwner(address sender); // 自定义的带参数的error
+function transferOwner1(uint256 tokenId, address newOwner) public {
+    if(_owners[tokenId] != msg.sender){
+        revert TransferNotOwner();
+        // revert TransferNotOwner(msg.sender);
+    }
+    _owners[tokenId] = newOwner;
+}
+```
+答案：
+
+PART 13
+1.	对virtual关键字描述正确的是：父合约中的函数，如果希望子合约重写，需要加上该关键字。
+2.	对override关键字描述正确的是：子合约中重写了父合约中的函数，需要加上该关键字。
+3.	下面哪个选项表示A合约继承了B合约：contract A is B
+4.	function a() public override{} 意思是：函数a0重写了父合约中的同名函数
+5.	如果合约B继承了合约A，合约C要继承A和B，要怎么写？contract C is A,B
+6.	合约B继承了合约A，下面选项中，正确调用父合约构造函数的是：constructor(uint _num) A (_num){}
+7.	合约B继承了合约A，两个合约都有pop()函数，下面选项中，正确调用父合约函数的是：都正确
+
+PART 14
+1.	已知foo是一个未实现的函数，那么下面代码中书写正确的是？
+abstract contract A{function foo(uint a)internal pure virtual returns(uint);}
+2.	被标记为abstract的合约能否被部署？不能
+3.	下列关于接口的规则中，错误的是：继承接口的合约可以不实现接口定义的全部功能
+4.	下列关于接口的描述，错误的是：如果已知一个合约实现了ERC20接口，那么还需要知道它具体代码实现，才可以与之交互
+5.	已经知Azuki的合约地址为0xED5AF388653567Af2F388E6224dC7C4b3241C544，那么利用该地址创建接口合约变量的语句是：
+IERC721 Azuki = IERC721(0xED5AF388653567Af2F388E6224dC7C4b3241C544)
+6.	已知Azuki合约中存在ownerOf(uint256 tokenId)函数可用来查询某一NFT的拥有者，现在vitalik想利用上文中创建的接口合约变量调用这一函数，并写出了如下代码：return Azuki.ownerof(id);
+7.	已知Azuki合约中存在approve(address to, uint256 tokenId)函数可以让NFT的拥有者将自己某一NFT的许可权授予另一地址，且该函数没有返回值，现在某个Azuki拥有者想利用上文中创建的接口合约变量调用这一函数 ，那么他写出的代码可能是？
+function approveAzuki(address to,uint256 id) external{Azuki.approve(to,id);}
+
+PART 15
+1.	Solidity抛出异常的方法有：error、require、assert
+2.	判断：对于error, 在合约执行过程中，可以搭配revert，也可以单独使用。错误
+3.	判断：error可以带有参数。正确
+4.	require的使用方法为：require(检查条件，"异常的描述")判断：require消耗gas的数量会随着检查条件的增多以及"异常的描述"变长而增加。正确
+5.	判断：assert和require一样，可以解释抛出异常的原因。错误
+6.	error，require和assert三种方法的gas消耗，从大到小依次为：
+require > assert > error
+7.	在有以下定义的前提下，以下实现中能够正确抛出异常的写法为：require方法
+
+### 2024.09.27
+
+章节16——18
+
+笔记：
+
+Solidity中允许函数进行重载（overloading），即名字相同但输入参数类型不同的函数可以同时存在，他们被视为不同的函数。注意，Solidity不允许修饰器（modifier）重载。
+```
+function f(uint8 _in) public pure returns (uint8 out) {
+    out = _in;
+}
+function f(uint256 _in) public pure returns (uint256 out) {
+    out = _in;
+}
+// 调用f(50)，因为50既可以被转换为uint8，也可以被转换为uint256，因此会报错。
+```
+库合约和普通合约主要有以下几点不同：
+
+1.不能存在状态变量
+2.不能够继承或被继承
+3.不能接收以太币
+4.不可以被销毁
+
+库合约可见性被设置为public或者external,在调用函数时会触发一次delegatecall。设置为internal，则不会引起。
+
+使用库合约的方法：
+
+1.利用using for指令：指令using A for B;可用于附加库合约（从库 A）到任何类型（B）。添加完指令后，库A中的函数会自动添加为B类型变量的成员，可以直接调用。注意：在调用的时候，这个变量会被当作第一个参数传递给函数：
+```
+// 利用using for指令
+using Strings for uint256;
+function getString1(uint256 _number) public pure returns(string memory){
+    // 库合约中的函数会自动添加为uint256型变量的成员
+    return _number.toHexString();
+}
+```
+2.通过库合约名称调用函数:
+```
+// 直接通过库合约名调用
+function getString2(uint256 _number) public pure returns(string memory){
+    return Strings.toHexString(_number);
+}
+```
+常用的有：
+
+1.Strings：将uint256转换为String
+2.Address：判断某个地址是否为合约地址
+3.Create2：更安全的使用Create2 EVM opcode
+4.Arrays：跟数组相关的库合约
+
+import用法:
+```
+// 通过源文件相对位置导入
+import './Yeye.sol';
+// 通过网址引用
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Address.sol';
+// 通过npm的目录导入
+import '@openzeppelin/contracts/access/Ownable.sol';
+// 通过指定全局符号导入合约特定的全局符号
+import {Yeye} from './Yeye.sol';
+```
+引用(import)在代码中的位置为：在声明版本号之后，在其余代码之前。
+
+答案：
+
+PART 16
+1.	什么是函数重载（Overloading）? 名字相同但输入参数类型不同的函数可以同时存在，他们被视为不同的函数。
+2.	Solidity中是否允许修饰器（modifier）重载？不允许
+3.	下面两个函数的函数选择器是否相同？不相同
+4.	使用上一题代码，如果我们调用 saySomething("WTF")，返回值为：”WTF”
+5.	下面两个函数的函数选择器是否相同？不相同
+
+PART 17
+1.	以下，通过库合约名称调用toHexString()，返回值return出正确的写法为：
+Strings.toHexString(_number);
+2.	关于库函数的描述，下列描述错误的是：库函数一般需要你自己实现
+3.	库合约和普通合约的区别，下列描述错误的是：库合约可以被继承
+4.	以下属于常用库函数的有：String、Address、Create2、Arrays
+5.	String库合约是将uint256类型转换为相应的string类型的代码库，toHexString()为其中将uint256转换为16进制，再转换为string。
+_number.toHexString();
+
+PART 18
+1.	Solidity中import的作用是：导入其他合约中的全局符号
+2.	import导入文件的来源可以是：源文件网址、npm的目录、本地文件
+3.	以下import写法错误的是：import from "./Yeye.sol";
+4.	import导入文件中的全局符号可以单独指定其中的：合约、函数、结构体类型
+5.	被导入文件中的全局符号想要被其他合约单独导入，应该怎么编写？与合约并列在文件结构中
+
+### 2024.09.29
+
+章节19——20
+
+笔记：
+
+receive()函数是在合约收到ETH转账时被调用的函数。一个合约最多有一个receive()函数，声明方式与一般函数不一样，不需要function关键字：receive() external payable { ... }。receive()函数不能有任何的参数，不能返回任何值，必须包含external和payable。
+当合约接收ETH的时候，receive()会被触发。receive()最好不要执行太多的逻辑因为如果别人用send和transfer方法发送ETH的话，gas会限制在2300，receive()太复杂可能会触发Out of Gas报错；如果用call就可以自定义gas执行更复杂的逻辑。
+警惕恶意合约，会在receive() 函数（老版本0.6.x的话，就是 fallback() 函数）嵌入恶意消耗gas的内容或者使得执行故意失败的代码。
+```
+// 定义事件
+event Received(address Sender, uint Value);
+// 接收ETH时释放Received事件
+receive() external payable {
+    emit Received(msg.sender, msg.value);
+}
+```
+fallback()函数会在调用合约不存在的函数时被触发。可用于接收ETH，也可以用于代理合约proxy contract。fallback()声明时不需要function关键字，必须由external修饰，一般也会用payable修饰，用于接收ETH:fallback() external payable { ... }。
+
+receive和fallback的区别：
+```
+触发fallback() 还是 receive()?
+           接收ETH
+              |
+         msg.data是空？
+            /  \
+          是    否
+          /      \
+receive()存在?   fallback()
+        / \
+       是  否
+      /     \
+receive()   fallback()
+// 合约接收ETH时，msg.data为空且存在receive()时，会触发receive()
+```
+transfer（接收方地址.transfer(发送ETH数额)）、send（接收方地址.send(发送ETH数额)）、call（接收方地址.call{value: 发送ETH数额}("")）都可用于发送ETH，三者的区别：
+
+1.transfer、send的gas限制都在2300，足够用于转账，但对方合约的fallback()或receive()函数不能实现太复杂的逻辑。区别在于，交易失败transfer会自动revert，send不会（send只会返回成功与否的bool值，需要额外代码处理一下）。
+2.call()没有gas限制，可以支持对方合约fallback()或receive()函数实现复杂逻辑，不会revert，call()的返回值是(bool, bytes)，其中bool代表着转账成功或失败，需要额外代码处理一下。
+```
+error SendFailed(); // 用send发送ETH失败error
+
+// send()发送ETH
+function sendETH(address payable _to, uint256 amount) external payable{
+    // 处理下send的返回值，如果失败，revert交易并发送error
+    bool success = _to.send(amount);
+    if(!success){
+        revert SendFailed();
+    }
+}
+```
+```
+error CallFailed(); // 用call发送ETH失败error
+
+// call()发送ETH
+function callETH(address payable _to, uint256 amount) external payable{
+    // 处理下call的返回值，如果失败，revert交易并发送error
+    (bool success,) = _to.call{value: amount}("");
+    if(!success){
+        revert CallFailed();
+    }
+}
+```
+
+答案：
+
+PART 19
+1.	下面哪个选项语法是正确的？receive() external payable {}
+2.	fallback(or receive)函数能否在合约内部调用？不能
+3.	vitalik想部署一个能接收ETH和msg.data的合约，那么他部署的合约中：
+必须含有fallback函数
+4.	假设存在如下合约，现在vitalik向该合约发起一笔低级交互，value=100Wei，msg.data=0xaa，那么会发生下面选项中的哪种情况？
+error:Fallback function is not defined,value和msg.data均发送失败
+5.	假设存在如下合约，现在vitalik想调用该合约中不存在的函数，他在calldata中输入函数选择器，并将value设置为1ETH，那么会发生下面选项中的哪种情况？
+error:'Fallback'function is not defined,value和msg.data均发送失败
+
+PART 20
+1.	下面三种发送ETH的方法中，哪一种没有gas限制？call
+2.	下面三种发送ETH的方法中，哪一种发送失败会自动revert交易?transfer
+3.	transfer的gas限制为？2300
+4.	vitalik写了一个合约，并且该合约在被部署时可以转ETH进去，那么该合约的构造函数可能为？constructor() payable {}
+5.	vitalik写了一个用send()发送ETH的函数：
+bool success =_to.send(amount); if(!success) { revert SendFailed(); }
+6.	vitalik又写了一个用call()发送ETH的函数：
+(bool success,) =_to.call {value:amount} (""); if(!success) {revert CallFailed();}
+7.	假设存在如下两个合约(sendETH和ReceiveETH)，两个合约目前ETH余额皆为0，现在vitalik想通过SendETH合约的callETH函数往ReceiveETH合约转入1ETH，他将交易的value设置为2ETH，同时交易成功执行，那么此时sendETH合约和ReceiveETH的ETH余额分别为？1ETH;1ETH
+
+### 2024.09.30
+
+章节21-22
+
+笔记：
+```
+contract CallContract{
+   // 合约名（地址）.函数名（）的方式调用其他合约函数
+    function callSetX(address _Address, uint256 x) external{
+        OtherContract(_Address).setX(x);
+    }
+   // 相当于参数已经提前指定合约地址引用，直接调用
+    function callGetX(OtherContract _Address) external view returns(uint x){
+        x = _Address.getX();
+    }
+   // 将指定好的赋值给一个变量，通过变量来调用具体函数
+    function callGetX2(address _Address) external view returns(uint x){
+        OtherContract oc = OtherContract(_Address);
+        x = oc.getX();
+    }
+   // 这边对比第一条callSetX实际多了个转账
+    function setXTransferETH(address otherContract, uint256 x) payable external{
+        OtherContract(otherContract).setX{value: msg.value}(x);
+    }
+}
+```
+### 2024.10.03
+
+在外面完成，笔记后续补充
+章节23-28
+
+
+
+
+
+
+
+
+
+
+
 
 <!-- Content_END -->

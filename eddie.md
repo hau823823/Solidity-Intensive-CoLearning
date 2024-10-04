@@ -15,6 +15,226 @@ timezone: Asia/Shanghai
 ## Notes
 <!-- Content_START -->
 
+### 2024.10.03
+
+Solidity103章节内容：荷兰拍卖、默克尔树
+
+Ethers101章节内容：HelloVitalik
+
+#### 笔记
+
+- merkle tree
+
+  [关于Merkle证明](https://learnblockchain.cn/article/5297)
+  
+  通过两两哈希，来获取根节点，利用根节点的可验证性，来保护整个数据不被篡改；
+
+  Merkle proof即为从叶子节点到根节点的路径；
+
+- 相关代码
+
+  [dutchAuction.sol](https://github.com/eddiehsu66/SolidityCase/tree/main/NftAuction)
+
+  [merkletree.sol](https://github.com/eddiehsu66/SolidityCase/tree/main/NftWhitelist)
+
+### 2024.10.02
+
+WTF103章节内容：ERC721
+
+#### 笔记
+
+- IERC165
+检查一个智能合约是否支持ERC721的接口
+    
+    ```solidity
+    //ERC721中实现该接口
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool)
+        {
+            return
+                interfaceId == type(IERC721).interfaceId ||
+                interfaceId == type(IERC165).interfaceId;
+        }
+    ```
+    
+- 确保目标合约实现了onERC721Received()函数
+    
+    ```solidity
+    function _checkOnERC721Received(address operator,address from,address to,uint256 tokenId,bytes memory data) internal {
+        if (to.code.length > 0) {
+            try IERC721Receiver(to).onERC721Received(operator, from, tokenId, data) returns (bytes4 retval) {
+                if (retval != IERC721Receiver.onERC721Received.selector) {
+                //利用函数选择器来验证，对to地址进行强制转换
+                    revert IERC721Errors.ERC721InvalidReceiver(to);
+                }
+            } catch (bytes memory reason) {
+                if (reason.length == 0) {
+                    // non-IERC721Receiver implementer
+                    revert IERC721Errors.ERC721InvalidReceiver(to);
+                } else {
+                    /// 用汇编抛出更详细和自定义的错误信息
+                    assembly {
+                        revert(add(32, reason), mload(reason))
+                    }
+                }
+            }
+        }
+    }
+    ```
+    
+- 相关代码
+
+    [erc721](https://github.com/eddiehsu66/SolidityCase/tree/main/ERC721)
+
+
+### 2024.10.01
+
+WTF103章节内容: 空投合约
+
+#### 笔记
+
+- 空投合约
+    
+    _to.call(value:amount){””}
+    这里的value默认单位为wei，如果需要发送ether，可以amount * 1 ether 来进行换算
+
+- 相关代码
+
+    [airdrop合约](https://github.com/eddiehsu66/SolidityCase/tree/main/Airdrop)
+
+### 2024.09.30
+
+WTF103章节内容：ERC20、代币水龙头
+
+#### 笔记
+
+- IERC20接口
+    
+    ```solidity
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from,address to,uint256 amount) external returns (bool);
+    ```
+    
+- 相关代码：
+
+    [erc20](https://github.com/eddiehsu66/SolidityCase/tree/main/ERC20)
+
+    [tokenFaucet](https://github.com/eddiehsu66/SolidityCase/tree/main/TokenFaucet)
+
+### 2024.09.29
+
+WTF102章节内容：Hash、TryCatch
+
+#### 笔记
+
+- 选择器
+    
+    即为bytes4(keccak256("fixedSizeParamSelector(uint256[3])"))，可以理解作为函数的标识符；
+
+    此处需要注意空格，uint换为uint256；
+    
+    ```solidity
+    contract DemoContract {
+    }
+    
+    contract Selector{
+        struct User {
+            uint256 uid;
+            bytes name;
+        }
+        enum School { SCHOOL1, SCHOOL2, SCHOOL3 }
+        function mappingParamSelector(DemoContract demo, User memory user, uint256[] memory count, School mySchool) external returns(bytes4 selectorWithMappingParam){
+            emit SelectorEvent(this.mappingParamSelector.selector);
+            //mappingParamSelector中DemoContract需要转化为address
+            //结构体User需要转化为tuple类型(uint256,bytes)
+            //枚举类型School需要转化为uint8
+            return bytes4(keccak256("mappingParamSelector(address,(uint256,bytes),uint256[],uint8)"));
+        }
+        function callWithSignature() external{
+        //利用选择器来进行函数调用
+    	    (bool success1, bytes memory data1) = address(this).call(abi.encodeWithSelector(0x3ec37834, 1, 0));
+        }
+    }
+    ```
+    
+- 异常捕捉
+    
+    ```solidity
+    try externalContract.f() returns(returnType){
+    } catch Error(string memory /*reason*/) {
+        // revert和require→用Error(string memory)进行捕捉
+    } catch Panic(uint /*errorCode*/) {
+        // assert→用Panic()进行捕捉|
+    } catch (bytes memory) {
+        // 通用的，不考虑区分Error和Panic
+        // 例如revert() require(false) revert自定义类型的error
+    }
+    ```
+
+
+### 2024.09.28
+
+- WTF102章节内容：在合约中创建新合约、Create2、删除合约、ABI编码解码
+
+#### 笔记
+
+- 使用CREATE创建合约
+  
+新地址 = hash(创建者地址，nonce)
+
+- 使用CREATE2创建合约
+新地址 = hash(常数，创建者地址，salt，initcode)
+    ```
+    predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
+    	    bytes1(0xff),
+    	    address(this),
+    	    salt,
+	    keccak256(type(Pair).creationCode)
+	    )))));
+    bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+    // 用create2部署新合约
+    Pair pair = new Pair{salt: salt}();
+    ```
+
+- ABI
+应用二进制接口，是与以太坊智能合约交互的标准。数据基于他们的类型编码；并且由于编码后不包含类型信息，解码时需要注明它们的类型。
+    ```solidity
+    abi.encode()//为每个参数填充32字节的数据来并拼接
+    abi.encodePacked()//和encode相比，将填充的很多0省略，节省空间，但无法和合约交互
+    abi.encodeWithSignature()//第一个参数为函数签名FunctionName
+    //函数选择器：就是通过函数名和参数进行签名处理(Keccak–Sha3)来标识函数，可以用于不同合约之间的函数调用
+    abi.encodeWithSelector(bytes4(keccak256("foo(uint256,address,string,uint256[2])")), x, addr, name, array);//第一个参数为函数选择器
+    abi.decode()
+    ```
+
+
+### 2024.09.27
+
+- WTF102章节内容：Call、Delegatecall
+
+#### 笔记
+
+- 通过call来进行调用某一个合约函数
+    
+    ```solidity
+    address.call(abi.encodeWithSignature(”function signature”,prop))
+    //当call 不存在的函数时，返回依然为success，但返回的data为0x0，实质调用了目标合约的fallback函数
+    ```
+    
+- delegatecall
+    
+    要求当前合约中的状态变量和被调用合约中的状态变量相同；
+    即为在调用过程中，delegatecall的执行结果可以修改当前合约的状态变量；
+    
+    **`要求变量类型和声明顺序必须相同，变量名可以不同；`**
+    
+    原因：变量名对于storage并不重要，storage是基于位置的；Solidity将状态变量以线性布局的方式存储在合约的storage slots中，如，第一个变量存在slot 0，第二个在slot1；
+
 ### 2024.09.26
 
 - WTF102章节内容：接收ETH、发送ETH、调用其他合约

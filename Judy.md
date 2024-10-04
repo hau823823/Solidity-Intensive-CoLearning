@@ -1066,4 +1066,689 @@ bytes array7;
 - 可以與陣列或 `mapping` 結合來管理多個實體。
 - 透過 `struct`，可以有效提高代碼的結構性和可讀性，讓智能合約的邏輯更清晰、易於維護。
 
+### 2024.09.28
+#### 映射
+
+映射（mapping）就是`key - value` 概念
+
+在 Solidity 中，參考型別（Reference Types）包括 `struct`、`array` 和 `mapping`
+
+### 映射的語法
+
+映射的基本語法如下：
+
+```solidity
+mapping(keyType => valueType) public myMapping;
+```
+
+- `keyType`: 映射的鍵的類型
+    - 是一種偏移量，必須是 Solidity 中的基礎型別（自定義的話Solidity不知道）
+    - 合法的 `keyType` 包括以下基礎型別：
+        - `uint` / `uint256`
+        - `int`
+        - `address`
+        - `bool`
+        - `bytes1` 到 `bytes32` （定長字節數組）
+    - **不能**使用複雜型別如 `struct` 或動態陣列作為鍵類型。
+    - 如果需要使用陣列或結構體作為鍵，可以先將其哈希處理，然後使用哈希值作為鍵來存取對應的值。
+- `valueType`: 映射的值的類型
+    - 可以是任何類型，包含基礎型別、結構體、甚至另一個映射。
+- mapping 只能存在`storage`，所以通常是狀態變量，不能作為函數參數或返回值。
+- 如果是`public`，會自動創建 `getter`，可根據 key 查詢 value
+
+### 映射的特性
+
+1. **默認值**：
+映射中的每個鍵在初始化之前都有一個默認值。當你查詢一個從未設定過的鍵時，映射會返回該值類型的默認值。例如，`uint` 的默認值是 `0`，`bool` 的默認值是 `false`，`address` 的默認值是 `0x0000000000000000000000000000000000000000`。
+    
+    範例：
+    
+    ```solidity
+    function getBalance(address _addr) public view returns (uint) {
+        return balances[_addr]; // 如果這個地址未被設定過，返回 0
+    }
+    ```
+    
+2. **無法遍歷**：
+Solidity 中的映射無法被遍歷，這是因為映射不會儲存鍵的清單，也無法得知有哪些鍵存在。因此，你無法列舉映射中所有的鍵值對。如果需要遍歷資料，通常會與陣列一起使用來記錄所有鍵。
+3. **只支持基礎型別作為鍵**：
+映射的鍵只能是 Solidity 支援的基礎型別，如 `address`、`uint`、`bytes32` 等，不能是動態陣列或 `struct`。
+4. **動態大小**：
+映射的大小是動態的，可以根據需要添加新的鍵值對。無需在初始化時指定映射的大小。
+5. **值可以是任何類型**：
+映射的值類型可以是任何類型，包括基礎型別、陣列、結構體，甚至是其他映射。
+
+### 映射的應用場景
+
+1. **管理用戶餘額**：
+映射常用於管理帳戶餘額。例如，可以用映射來儲存每個地址對應的代幣或資金餘額。
+    
+    ```solidity
+    contract ExampleContract {
+        // 錢包地址對應多少錢
+        mapping(address => uint) public balanceOf;
+    
+        // 給他錢
+        function mint() external{
+            balanceOf[msg.sender] = 50 ether;
+        }
+    
+        // 燒毀
+        function burn() external{
+            balanceOf[msg.sender] = 10 ether;
+        }
+    }
+    ```
+    
+    - deploy 起始值
+        
+        ![image](https://github.com/user-attachments/assets/d3beddc7-70fc-4b67-904d-b1f9e87a997d)
+
+        
+    - mint() 之後
+        
+        ![image](https://github.com/user-attachments/assets/12dd3ffb-10c9-48e2-8744-f184d7785905)
+
+        
+    - burn() 之後
+        
+        ![image](https://github.com/user-attachments/assets/bfe53d46-2777-4b0d-9472-d12d4d7bfae8)
+
+        
+2. **白名單（Whitelist）或黑名單（Blacklist）**：
+映射可以用來跟蹤某個地址是否在白名單或黑名單中。可以用布林值（`bool`）來標記某個地址是否被允許或禁止。
+    
+    ```solidity
+    mapping(address => bool) public whitelist;
+    
+    function addToWhitelist(address _addr) public {
+        whitelist[_addr] = true;
+    }
+    
+    function isWhitelisted(address _addr) public view returns (bool) {
+        return whitelist[_addr];
+    }
+    ```
+    
+3. **管理多重資料結構**：
+映射可以與結構體（`struct`）結合使用，來管理更複雜的資料。例如，可以建立一個 `struct`，然後將每個地址與該結構體關聯。
+    
+    範例：
+    
+    ```solidity
+    struct User {
+        string name;
+        uint age;
+    }
+    
+    mapping(address => User) public users;
+    
+    function setUser(address _addr, string memory _name, uint _age) public {
+        users[_addr] = User(_name, _age);
+    }
+    
+    function getUser(address _addr) public view returns (string memory, uint) {
+        User memory user = users[_addr];
+        return (user.name, user.age);
+    }
+    ```
+    
+4. **允許或拒絕操作權限**：
+映射可以用來跟蹤某些地址是否有權限執行某些操作，例如在某個合約中授權特定地址進行操作。
+    
+    ```solidity
+    mapping(address => bool) public authorized;
+    
+    function authorize(address _addr) public {
+        authorized[_addr] = true;
+    }
+    
+    function revoke(address _addr) public {
+        authorized[_addr] = false;
+    }
+    
+    function isAuthorized(address _addr) public view returns (bool) {
+        return authorized[_addr];
+    }
+    ```
+    
+
+### 映射的限制
+
+1. **無法遍歷**：
+如前所述，映射中的鍵不能被遍歷。因此，如果需要檢查所有的鍵值對，需要自己維護一個鍵的陣列來實現遍歷。
+    
+    ```solidity
+    address[] public keys;
+    
+    function addKey(address _key) public {
+        keys.push(_key);
+    }
+    
+    function getAllKeys() public view returns (address[] memory) {
+        return keys;
+    }
+    ```
+    
+2. **無法確定鍵是否存在**：
+    
+    ```solidity
+    mapping(address => bool) public whitelist;
+    
+    function isWhitelisted(address _addr) public view returns (bool) {
+        return whitelist[_addr]; // 如果地址未被設定，默認為 false
+    }
+    
+    ```
+    
+    - Solidity 無法直接判斷某個鍵是否存在於映射中。
+    - 當查詢一個不存在的鍵時，映射會返回默認值，而不是告知該鍵不存在。
+    - 因此，當值類型有明確的默認值時（如 `uint` 的默認值為 `0`），可能需要額外的邏輯來判斷一個鍵是否實際存在。
+
+### 2024.09.30
+#### 變量初始值
+### 前言
+
+- 在 Solidity 中，所有變量在宣告後，若未經過初始化，都會自動設置為對應型別的**默認初始值**。
+- 默認初始值是基於變量的資料型別來決定的。
+- 了解這些默認值以及 `delete` 關鍵字的作用非常重要，可以幫助在管理智能合約中的狀態變量時避免意外行為。
+
+### 變量的初始值
+
+每種類型的默認初始值如下：
+
+- **`uint` 和 `int`**（無符號與有符號整數）：默認值為 `0`。
+- **`bool`**（布林型）：默認值為 `false`。
+- **`address`**（地址型）：默認值為 `0x0000000000000000000000000000000000000000` （0x + 40個0）。
+- **`bytes`（定長字節）**：默認為 `0x0000...`，填滿零。
+- **`mapping`**：映射中的每個鍵在初始時對應的值是其值類型的默認值（例如，`mapping(address => uint)` 中每個地址對應的值初始為 `0`）。
+- **`array`（陣列）**：動態陣列的長度默認為 `0`。定長陣列的每個元素為其類型的默認值。
+- **`struct`（結構體）**：結構體中的每個成員變數會被初始化為其型別的默認值。
+
+```solidity
+contract ExampleContract {
+    // Value Type
+    bool public _bool; // false
+    string public _string; // ""
+    int public _int; // 0
+    uint public _uint; // 0
+    address public _address; // 0x0000000000000000000000000000000000000000
+
+    enum ActionSet { Buy, Hold, Sell}
+    ActionSet public _enum; // 第1個Buy的索引0
+
+    function fi() internal{} // internal空白函数
+    function fe() external{} // external空白函数
+}
+```
+
+![image](https://github.com/user-attachments/assets/0f6fe1cb-3ee7-4b4c-9d94-7be40631fbd1)
+
+
+```solidity
+   	// Reference Types
+    uint[8] public _staticArray; // [0,0,0,0,0,0,0,0]
+    uint[] public _dynamicArray; // `[]`
+    mapping(uint => address) public _mapping; // 所有元素都為其默認值的mapping
+    
+    // 所有成員設為其默認值的結構體 0, 0
+    struct Student{
+        uint256 id;
+        uint256 score; 
+    }
+    Student public student;
+```
+
+![image](https://github.com/user-attachments/assets/98a38a9f-7498-47b0-8fde-319f7bf54983)
+
+
+### `delete` 關鍵字
+
+- 將變量重置為其默認初始值的操作。
+- 它可以用來重置任何變量，無論是基礎型別（例如 `uint`、`bool` 等），還是複合型別（例如陣列、結構體或映射中的特定鍵值）。
+- 範例：
+    
+    ```solidity
+    contract ExampleContract {
+        struct Person {
+            string name;
+            uint age;
+        }
+    
+        Person public person = Person("Alice", 30);
+    
+        function resetPerson() public {
+            delete person;  // 重置 person 的 name 為空字串，age 為 0
+        }
+    }
+    ```
+    
+    - deploy 起始值
+        
+        ![image](https://github.com/user-attachments/assets/7377d599-430a-439f-af0c-cb6d891b7303)
+
+        
+    - delete 後
+        
+        ![image](https://github.com/user-attachments/assets/95e42f8d-e735-4b43-aef1-2b7d70c05eeb)
+
+        
+
+### `delete` 的作用
+
+- **對基礎型別**：將變量設置為其型別的默認初始值。例如，對 `uint` 使用 `delete`，會將其重置為 `0`；對 `bool` 使用 `delete`，會將其設置為 `false`。
+- **對引用型別（陣列、映射等）**：`delete` 將引用型別的內容重置為初始狀態，例如清空陣列、刪除映射中的特定鍵值等。
+
+### 2024.10.01
+#### 常數的兩個關鍵字：const, immutable
+### 前言
+
+- 在 Solidity 中，**常數（constants）** 是不可變的值，
+- 常數一旦設置後，在合約的生命週期中就不能再更改。
+- Solidity 提供了兩個關鍵字來定義常數：**`constant`** 和 **`immutable`**。
+- 這兩個關鍵字都能提高合約的效率，並確保特定變數的值不會被篡改，但它們有不同的使用場景和特性。
+
+### 1. **`constant` 關鍵字**
+
+- 定義的變量必須在宣告時立即初始化，並且初始化的值必須是**編譯時已知的常量**。
+
+```solidity
+contract Example {
+	// 使用 constant 定義常數
+	uint256 public constant MY_CONSTANT = 100;
+	string public constant NAME = "Alice";
+	address public constant OWNER = 0x1234567890abcdef1234567890abcdef12345678;
+}
+```
+
+- **宣告**：在變量的類型後加上 `constant` 關鍵字。
+- **初始化**：`constant` 變量必須在宣告時進行初始化，且其值不可在合約的任何地方更改。
+- **效率**：`constant` 變量的值在編譯時期就會被確定，並直接嵌入到合約的字節碼中。這樣可以減少存儲需求，降低部署和運行時的 gas 消耗。
+
+### 2. **`immutable` 關鍵字**
+
+- `immutable` 允許定義在部署合約時設置一次且之後不可變更的變量。
+- 與 `constant` 不同，`immutable` 變量的值可以在合約的`建構函數（constructor）`中進行初始化，而不必在宣告時立即賦值。
+- `immutable` 只支持固定大小的型別
+- `string` 和 `bytes` 是動態大小的資料型別（長度不固定），不能用`immutable`
+
+```solidity
+uint256 public immutable IMMUTABLE_NUM = 9999999999;
+address public immutable IMMUTABLE_ADDRESS;
+uint256 public immutable IMMUTABLE_BLOCK;
+uint256 public immutable IMMUTABLE_TEST;
+
+// 利用constructor初始化immutable變量
+// 可以使用全局變量例如 address(this)、block.number 或者自定義的函數給 immutable 變量初始化
+// 在下面這個例子中，利用了 test() 函數給 IMMUTABLE_TEST 初始化為 9。
+constructor(){
+    IMMUTABLE_ADDRESS = address(this);
+    IMMUTABLE_NUM = 1118;
+    IMMUTABLE_TEST = test();
+}
+
+function test() public pure returns(uint256){
+    uint256 what = 9;
+    return(what);
+}
+```
+
+- 結果
+
+![image](https://github.com/user-attachments/assets/8df02d17-9669-46a0-b025-4eaaf8cdfb59)
+
+
+### `constant` 與 `immutable` 的比較
+
+| 特性 | `constant` | `immutable` |
+| --- | --- | --- |
+| **初始化時間** | 必須在宣告時賦值 | 可以在建構函數中初始化 |
+| **修改** | 無法修改，一旦設置後永遠不可改變 | 只能在建構函數中設置，之後不可更改 |
+| **編譯時/部署時** | 在編譯時設置 | 在合約部署時設置 |
+| **用途** | 用於編譯時已知的值 | 用於部署時期才確定的值 |
+| **Gas 效率** | 更高效（直接編譯進字節碼） | 高效，但稍差於 `constant` |
+| **存儲位置** | 嵌入到**合約的字節碼**中（contract bytecode） | 存儲在**合約的字節碼**中 |
+| **訪問效率** | **最高**效率，因為值直接嵌入字節碼中 | **高效率**，從合約字節碼中讀取，不涉及 `storage` |
+
+- 注意：**訪問效率** 和 **Gas 費用** 並不是完全相等的概念
+    - 定義：
+        - **訪問效率**：指的是訪問或操作變量所需的計算資源和時間。高效率的操作通常需要較少的計算步驟，例如直接從合約字節碼中讀取常數，而不涉及對區塊鏈上 `storage` 的存取，這樣的操作會被認為是高效的。
+        - **Gas 費用**：是以太坊網絡對計算和存儲操作的計費方式。每次在智能合約中執行的操作都會消耗一定的 Gas，操作越複雜或需要讀寫區塊鏈存儲的資源越多，消耗的 Gas 也就越多。因此，訪問效率高的操作通常需要更少的 Gas。
+    - 關係：
+        - 如果一個操作非常高效（例如直接從字節碼中讀取常數），它需要的 Gas 很少。
+        - 如果操作涉及存取區塊鏈的 `storage`（例如讀取或寫入存儲變量），則效率較低，並且需要更多的 Gas。
+
+### 為什麼這些關鍵字很重要？
+
+1. **安全性**：`constant` 和 `immutable` 能夠保證變量在合約的整個生命周期中保持不變，從而防止惡意或意外的變更，增強了合約的安全性。
+2. **節省 Gas**：這些變量不會儲存在永久性 `storage` 中，因此不需要消耗額外的存儲資源。這可以顯著降低合約的部署和執行成本。特別是 `constant`，其值直接嵌入到合約的字節碼中，這進一步提升了效率。
+3. **代碼的可讀性和明確性**：通過明確標記某些變量為不可變，可以幫助開發者更好地理解合約的邏輯和設計意圖，並使代碼更加易於維護。
+
+### 2024.10.02
+#### 控制流 ＆ 插入排序
+1. if - else
+
+```solidity
+contract ExampleContract {
+    function isPositive(int number) external pure returns (bool) {
+        if (number > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+```
+
+2. for 迴圈
+
+```solidity
+contract ExampleContract {
+	function addSum() external pure returns (uint) {
+		uint sum = 0;
+		for (uint i = 0; i < 10; i++) {
+			sum = sum + i;
+		}
+		return sum;
+	}
+}
+```
+
+![image](https://github.com/user-attachments/assets/6bef0c89-81c3-454b-abe0-2b443b3798b0)
+
+
+3. while
+
+```solidity
+contract ExampleContract {
+    function addSum() external pure returns (uint) {
+        uint sum = 0;
+        uint n = 0;
+        while(n < 10){
+            sum = sum + n;
+            n ++;
+        }
+        return sum;
+    }
+}
+```
+
+![image](https://github.com/user-attachments/assets/7eed044d-2b05-4527-a6e4-67526721759c)
+
+
+4. do while(至少執行一次do)
+
+```solidity
+contract ExampleContract {
+    function addSum() external pure returns (uint) {
+        uint sum = 0;
+        uint n = 0;
+        do {
+            sum += n;
+            n++;
+        }while(n < 10);
+        return sum;
+    }
+}
+```
+
+![image](https://github.com/user-attachments/assets/652c58f5-da50-414c-ab58-f623aca62d92)
+
+
+1. 跳出當前循環用 `break`，跳到下一個循環用 `continue`
+
+- 練習：以 solidity 寫 insertion sort
+
+```solidity
+function insertionSort(uint[] memory a) public pure returns(uint[] memory) {
+    // note that uint can not take negative value
+    for (uint i = 1;i < a.length;i++){
+        uint temp = a[i];
+        uint j=i;
+        while( (j >= 1) && (temp < a[j-1])){
+            a[j] = a[j-1];
+            j--;
+        }
+        a[j] = temp;
+    }
+    return(a);
+}
+```
+### 2024.10.03
+#### 建構函數與修飾器
+### 1. 建構函數（Constructor）
+
+建構函數是智能合約的特殊函數，它在合約**部署**時被自動執行。
+
+主要用來設置合約的初始狀態，例如設定初始變數值、初始化合約的擁有者等。
+
+### 特點：
+
+- **自動執行**：當合約被部署（即在區塊鏈上創建合約實例）時，建構函數會自動執行一次。
+- **命名方式**：在 Solidity 0.4.22 版本及更早版本，建構函數的名字必須和合約的名字相同；在 Solidity 0.4.22 之後，使用 `constructor` 關鍵字定義建構函數。
+- **無法重複調用**：建構函數只能執行一次，合約部署後無法再次被調用。
+
+```solidity
+contract MyContract {
+	address public owner;
+	
+	// 建構函數
+	constructor() {
+	    owner = msg.sender; // 將合約的擁有者設置為部署者
+	}
+}
+```
+
+### 2. 修飾器（Modifier）
+
+修飾器是一個可以用來**修改或限制**函數行為的程式塊。
+
+它們主要用來進行條件檢查或邏輯控制，並且通常在需要對函數執行前進行一些前置條件檢查的場景下使用。
+
+### 特點：
+
+- **函數前置條件**：修飾器可以在函數執行之前檢查條件，若條件不符合，可以阻止函數執行。
+- **代碼復用**：透過修飾器，可以避免在多個函數中重複寫相同的檢查代碼。
+- **`_` 符號**：修飾器中的 `_` 表示函數本身的邏輯會在修飾器檢查通過後的這個位置執行。
+
+```solidity
+contract MyContract {
+	address public owner;
+	
+	// 修飾器：檢查調用者是否為擁有者
+	modifier onlyOwner() {
+	    require(msg.sender == owner, "You are not the owner");
+	    _; // 在此處執行原本的函數邏輯
+	}
+	
+	// 建構函數
+	constructor() {
+	    owner = msg.sender; // 設置合約的擁有者為部署者
+	}
+	
+	// 含有modifier方法
+	// 只有當前調用者為擁有者時，才能執行此函數
+	function changeOwner(address newOwner) external onlyOwner{
+      owner = newOwner;
+  }
+}
+```
+
+在這個例子中，`onlyOwner` 修飾器檢查當前調用者是否是合約的擁有者。
+
+如果條件不滿足，會拋出錯誤並阻止函數執行。
+
+這樣可以保證特定`Function` 只有合約的擁有者才能調用。
+
+- 起始合約 owner
+    
+    ![image](https://github.com/user-attachments/assets/f51d8d7e-bf63-4802-816f-2ccd71616f4d)
+
+    
+- 非該合約 owner 呼叫 `changeOwner` 時
+    
+    ![image](https://github.com/user-attachments/assets/c40af1fe-fcba-4d4a-a77f-62108379663a)
+
+    
+- 該合約 owner 呼叫 `changeOwner` 時
+    
+    ![image](https://github.com/user-attachments/assets/b859a581-ec39-44c0-b2ea-ee0d025eea44)
+
+    
+
+### 3. 修飾器的應用場景
+
+- **權限控制**：如 `onlyOwner` 檢查，確保只有特定人員能執行某些操作。
+- **狀態檢查**：檢查合約當前的狀態是否允許執行特定函數，如某種狀態值。
+- **防止重入攻擊**：修飾器可以用來防範 Solidity 中常見的重入攻擊（reentrancy attack），即在函數調用過程中，惡意合約再次調用相同函數，導致合約邏輯被惡意多次執行。
+
+### 總結
+
+- **建構函數**：在合約部署時執行，用於初始化合約的狀態。
+- **修飾器**：用來修改函數執行行為，主要用於檢查條件並控制函數執行。
+
+### 2024.10.04
+#### 事件
+## 前言
+
+- 事件(event) 就是EVM 上的 log
+- 這些日誌記錄在區塊鏈中，但不會影響智能合約的狀態，並且比存儲在區塊鏈的數據便宜。
+- 外部應用(前端透過web3.js或ether.js)可以「監聽」這些事件。
+- 一旦事件被觸發，就可以接收到相關的數據。
+
+### 事件的語法
+
+在 Solidity 中，事件使用 `event` 關鍵字來定義。通常，事件包含一組參數，這些參數可以是原始類型或結構。觸發事件使用 `emit` 關鍵字。
+
+以下是一個簡單的事件定義和使用範例：
+
+```solidity
+contract Example {
+    // 定義事件
+    event Deposit(address indexed _from, uint _value);
+
+    // 觸發事件
+    function deposit() public payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+}
+```
+
+在這個範例中：
+
+- 定義了一個 `Deposit` 事件，它有兩個參數：`_from`（代表存款者的地址）和 `_value`（代表存入的金額）。
+- 當 `deposit` 函數被調用時，`emit` 關鍵字會觸發這個事件，將存款者的地址和金額記錄到區塊鏈的日誌中。
+
+### **使用事件的時機**
+
+事件在智能合約的開發中具有多種用途。常見的使用時機包括：
+
+1. **追蹤狀態變更**：
+當智能合約的狀態發生變化時，可以使用事件來記錄這些變化。外部應用或用戶可以通過監聽事件來追蹤合約的執行情況。這尤其適用於 DeFi 應用、NFT 合約等，需要跟蹤交易或狀態更新的場景。
+    
+    例如：在一個拍賣智能合約中，當有新的出價或拍賣結束時，可以發出相應的事件來通知前端。
+    
+2. **記錄交易相關信息**：
+事件可以記錄特定交易的細節，特別是在智能合約內部沒有其他存儲機制或需要減少 gas 費用的情況下。這些交易細節對於區塊鏈上的審計和數據分析非常有幫助。
+3. **與外部應用程序溝通**：
+當合約執行某些重要操作時（如資金轉移或權限變更），可以通過事件來通知外部應用。應用可以監聽這些事件並做出相應的反應，比如更新前端的顯示、觸發後續的智能合約操作等。
+4. **減少 gas 消耗**：
+在某些情況下，將數據寫入日誌比寫入區塊鏈狀態（如變量或映射）更為經濟。由於事件的數據儲存在日誌中，它們不會消耗太多的 gas。這對於需要大量數據寫入但不需要永久保存的情況非常有用。
+5. **調試和日誌記錄**：
+在合約的開發過程中，事件也可以用作調試工具。開發者可以使用事件來捕捉合約內部的執行流程和變量的變化，從而更容易定位和解決問題。
+
+### **事件的限制**
+
+- **不可讀取**：事件中的數據儲存在區塊鏈的日誌中，因此無法直接從智能合約內部讀取到這些數據。它們僅供外部應用程序讀取。
+- **不保證執行**：事件只是寫入日誌，不會對合約的狀態產生影響，也不會影響交易的成敗。因此，`不應依賴事件來實現合約內部的核心邏輯`。
+
+## 補充：課程範例-查看 logs
+
+```solidity
+contract ExampleContract {
+    event Transfer(address _from, address _to, uint value);
+    uint a;
+
+    function transfer(address _from, address _to, uint value) external {
+      a = 10;
+      emit Transfer(_from, _to, value);
+    }
+}
+```
+
+![image](https://github.com/user-attachments/assets/c153f3b6-c938-4230-a3b0-c9cdc74bd6a5)
+
+
+![image](https://github.com/user-attachments/assets/5b472020-090a-4082-8e45-f1b9120a636b)
+
+
+- 有加 `indexed` 的會被記錄到 `topics`
+
+```solidity
+contract ExampleContract {
+    event Transfer(address indexed _from, address indexed _to, uint value);
+    uint a;
+
+    function transfer(address _from, address _to, uint value) external {
+      a = 10;
+      emit Transfer(_from, _to, value);
+    }
+}
+```
+
+![image](https://github.com/user-attachments/assets/297d8e5f-b48d-4924-9431-d26480c94856)
+
+
+### **EVM 日誌（Logs）的結構**
+
+![image](https://github.com/user-attachments/assets/f9325e2e-c7ed-4449-ab02-f6b9f7e08c06)
+
+
+當事件在 Solidity 中被觸發時，EVM 會生成一個**日誌條目**，並將其寫入區塊的日誌區域。這些日誌條目包括：
+
+1. **地址（Address）**：觸發事件的合約地址。
+2. **主題（Topics）**：每個日誌條目最多可以包含四個主題，用來索引事件參數，從而幫助過濾特定類型的事件。
+3. **數據（Data）**：存儲與事件相關的具體數據，通常是事件的非索引參數。
+
+這些日誌不會影響合約的內部狀態，它們只是一種「外部輸出」，方便外部應用程式（如 DApp）或區塊鏈瀏覽器進行檢索和分析。
+
+### **事件如何存儲在日誌中**
+
+在 Solidity 中，每當 `emit` 關鍵字觸發一個事件時，EVM 會將該事件存儲為日誌條目。這些日誌條目存儲在每個區塊中，並與區塊的其他交易數據一同保存。
+
+### 具體的存儲結構包括：
+
+1. **合約地址**：用來標識是由哪個智能合約觸發的事件。這是日誌的**發件人地址**，即觸發事件的智能合約的地址。
+2. **事件的 Keccak-256 哈希值**：事件簽名（包括事件名稱和參數類型）會被哈希化為 256 位的雜湊值，這個值存儲在 `topics[0]` 中。這是每個事件獨有的識別符，幫助過濾器在大量日誌中識別具體的事件類型。
+    - https://emn178.github.io/online-tools/keccak_256.html
+        
+        例如，對於以下事件：
+        
+        ```solidity
+        event Transfer(address indexed _from, address indexed _to, uint256 _value);
+        ```
+        
+        EVM 會計算這個簽名的哈希：
+        
+        ```solidity
+        keccak256("Transfer(address,address,uint256)")
+        
+        // ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+        ```
+        
+3. **索引參數（Indexed Parameters）**：事件定義中的 `indexed` 參數會被儲存到 `topics` 陣列的後續位置。最多可以有三個索引參數，每個索引參數會以 Keccak-256 的格式哈希存儲。這樣可以通過索引進行高效查詢。
+    - 在上述事件中，`_from` 和 `_to` 都是 `indexed` 參數，因此它們的哈希值會被存儲在 `topics[1]` 和 `topics[2]`。
+4. **非索引參數（Non-indexed Parameters）**：不帶 `indexed` 關鍵字的參數會以原始格式存儲在日誌的數據段（`data`）中。這些參數不會被索引，因此無法直接通過過濾器查詢，但可以從日誌中讀取。
+    - 在 `Transfer` 事件中，`_value` 是一個非索引參數，因此它會被存儲在日誌的數據段內，而不是 `topics` 中。
+
+### **如何檢索日誌**
+
+事件被儲存在區塊鏈日誌中，而外部應用可以使用 `eth_getLogs` 這樣的 RPC 調用來檢索這些日誌。因為索引參數被存儲在 `topics` 中，外部應用可以使用參數過濾器來高效查詢特定的事件。
+
+### **日誌和事件的特點**
+
+1. **高效性**：日誌（logs）是 EVM 的「輕量級」記錄，寫入和檢索相對低成本，不會像區塊鏈狀態存儲那樣消耗太多 gas。
+2. **過濾能力**：事件的索引參數被存儲在 `topics` 中，允許對事件進行高效的查詢和過濾。
+3. **只寫性**：事件的數據被存儲在日誌中，這些日誌只能被寫入，無法在智能合約內部讀取，這確保了它們僅用於外部交互，而不會改變區塊鏈狀態。
+4. **不可變性**：一旦事件被寫入區塊，日誌就是不可變的。這意味著日誌提供了一種可靠的方式來追蹤歷史事件，這對於審計和數據分析非常有用。
 <!-- Content_END -->

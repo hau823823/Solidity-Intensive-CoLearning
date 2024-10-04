@@ -49,7 +49,65 @@ timezone: Asia/Shanghai (UTC+8)
 學習內容: `4.Return`
 > 分`returns`和`returns`，後者和其他程式語言類似，前者跟在函數名後面。
 > 特別的寫法，解構式賦值: `(, _bool2, ) = returnNamed();`
-> 
 
 
+### 2024.09.27
+學習內容: `5.Data Storage`
+> 引用類型: `array`, `struct`
+> 數據位置(與一般程式不同): `storage`, `memory`, `calldata`，`storage`消耗gas較多，且合約裡默認是`storage`，`memory`和`calldata`只存內存但不上鏈，
+`calldate`較`memory`不同的是其`immutable`特性。
+> 作用域: `state variable`, `local variable`, `global variable`。
+> 乙太單位: `wei(1)`, `gwei(1e9)`, `ether(1e18)`
+> 時間: 可以規定一個操作須在指定時間內完成。
+
++ 心得: 這章和gas和省空間(是否上鏈)息息相關，若未來寫合約時產生不必要的gas浪費，可回頭看這章找靈感。
+
+### 2024.09.28
+學習內容: `6.Array and Struct`
+> `array`: `T[k]`, `T[]`, `bytes`, `bytes1`, `bytes`比`bytes1`省gas。
+> `push()`, ,`push(x)`, `pop()`
+
+```
+struct先創建後賦值: 
+struct Student{
+   uint256 id;
+   uint256 score;
+}
+function initStu() external {
+   _stu = Student(3,90);
+}
+```
+
+### 2024.09.29
+學習內容: `7.Mapping`
++ key-value寫法
+```
+mapping(uint => address) public i2addr;
+```
++ 心得: 這章有講到mapping規則和原理但我對其沒感覺，之後再回頭看。
+
+### 2024.09.30
+學習內容: `8.Initial Value`
++ 宣告過但還沒被賦值的變數都有預設值。可用`getter()`驗證初始值。
++ 怎麼變回初始值? `delete a`會讓a的值變回初始值。
+
+### 2024.10.01
+學習內容: `9.Constant和immutable`
++ 和其他程式語言相同，constant不可變，immutable可變。
++ constant宣告時須先初始化(賦值)，immutable則不用。
+
+### 2024.10.02
+學習內容: `10.Insertion Sort`
++ 作者特別強調90%的人在Solidity寫插入算法都會出錯。
++ A: 情境: 若宣告`uinit j=i-1`，則當`j=0`時會出錯`underflow`，原因是`uinit是正整數不得為0`
++ 介紹`if-else`,`for`,`while`,`do-while`
++ 介紹三元運算符:`條件?真表達式:假表達式`
+
++ 心得: 不一定要是插入排序，只要是uint的值切記不得為0。
+
+### 2024.10.03
+學習內容: `11.constructor和modifier`
++ 每個合約可以有一個constructor，和其他程式語言類似。
++ modifier是Solidity獨有，類似decorator，modifier用做函數運行前的檢查(地址、變數、餘額等)
++ 另外多學到revert: _和ownable
 <!-- Content_END -->

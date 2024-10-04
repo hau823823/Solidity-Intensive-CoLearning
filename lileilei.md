@@ -394,4 +394,406 @@ assert gas最多，返回的错误信息未知
 上边mapping没初始化，所以都会报错
 
 
+### 2024.09.27
+
+pragma solidity ~0.8.21;
+contract overrideTest{
+
+    function getString() public pure returns(string memory){
+        return "hello";
+    }
+    function getString(string memory msg) public pure returns(string memory){
+        
+        return string.concat("hello",msg); 
+    }
+    function f(uint8 _in) public pure returns(uint8 out){
+        out=_in;
+    }
+    function f(uint256 _in) public pure returns(uint256 out){
+        out=_in;
+    }
+}
+
+重载就是可以声明多个相同名字不同参数类型的方法
+
+### 2024.09.28
+import "./Strings.sol";
+using Strings for uint256;
+contract LibraryTest{
+    function getString(uint256 number)  public pure returns(string memory){
+        return number.toHexString();
+    }
+
+    function getString2(uint256 number) public pure returns(string memory){
+        return Strings.toHexString(number);
+    }
+}
+使用库合约跟java的工具类一样，可以直接使用已经定义好的方法
+将library导入，在通过using A for B 将A的函数赋予B
+
+// SPDX-License-Identifier: MIT
+pragma solidity ~0.8.21;
+
+contract otherContract{
+  
+    uint256 private x=0;
+    event log(uint amount,uint gas);
+    function setx(uint256 amount) public payable {
+        x = amount;
+        if(amount>0){
+            emit log(msg.value,gasleft());
+        }
+    }
+
+    function getx() public view returns(uint256){
+        return x;
+    }
+
+    function getBalance() public view returns(uint256){
+        return address(this).balance;
+    }
+}
+
+contract callother{
+    function callSetx(address addr,uint x)external {
+       // otherContract con = otherContract(addr); 
+      // con.setx(x);
+       otherContract(addr).setx(x);
+    }
+    function callGetx(otherContract addr) public view returns(uint){
+        return addr.getx();
+    }
+}
+调用其他的合约，跟上边的库合约类似
+
+
+contract receiveEth{
+    event recEth(address from,uint256 value);
+    event fallbackEth(address,uint256 value,bytes data);
+    //因为有gas限制，receive和fallback逻辑不能太复杂
+    receive() external payable { 
+        emit recEth(msg.sender,msg.value);
+    }
+    fallback() external payable{
+        emit fallbackEth(msg.sender, msg.value, msg.data);
+    }
+
+    function getBalance() public view returns(uint) {
+        return address(this).balance;
+    }
+
+
+}
+
+
+contract callEth{
+    error sendfailed(); //搭配revert使用
+    error callfailed();
+    //三种发送eth的方法：call,transfer,send
+    constructor() payable {}
+    receive() external payable { }
+     
+    function transferEth(address payable  to,uint amount) external {
+        to.transfer(amount);
+    }
+
+    function sendEht(address payable to ,uint amount) external {
+        bool success = to.send(amount);
+        if(!success){
+            revert sendfailed();
+        }
+    }
+
+    function callerEth(address payable to,uint amount)external {
+        (bool success, )= to.call{value: amount}("");
+        if(!success){
+            revert callfailed();
+        }
+    }
+}
+发送eth和接收eth，地址和结构体需要用payable修饰
+发送可以用transfer,call,send
+transfer 有gas限制2300，失败后会revert
+send 有gas限制，失败后不会自动revert，一般不会用
+call 没有gas限制，常用
+
+
+### 2024.09.29
+import "./other.sol";
+contract callOther{
+    event log(string message);
+
+    function callSetx(address payable addr,uint amount) public payable {
+          (bool success,bytes memory data) = addr.call{value:msg.value}(abi.encodeWithSignature("setx(uint256)", amount));
+          if(success){
+            emit log("success");
+          }
+    }
+    function callGetx(address payable addr) public returns(uint256){
+        (bool success,bytes memory data) = addr.call(abi.encodeWithSignature("getx()"));
+        if(success){
+            emit log(string(abi.encodePacked(abi.decode(data, (uint256)))));
+        }
+        return abi.decode(data, (uint256));
+    }
+    function callnotexist(address payable addr)public{
+        (bool success,bytes memory data) = addr.call(abi.encodeWithSignature("selects()"));
+        if(!success){
+            emit log("the method is not exist");
+        }
+    }
+}
+使用call调用其他的合约方法，abi.encodeWithSignature("setx(uint256)")会找到对应的方法，如果有入参的话在后边指定
+call还可以发送eth，addr.call(value:msg.value) 这个value指的是当前合约拥有的eth,也可以手动指定数值
+调用不存在的方法时，会自动fallback()
+
+pragma solidity ~0.8.21;
+
+contract c{
+    uint256 public number;
+    address public addr;
+   function setVars(uint256 num) external{
+     number = num;
+     addr = msg.sender;
+   }
+}
+contract B{
+    uint public number;
+    address public addr;
+    function callSetVars(address _addr,uint amount) public {
+        (bool success,bytes memory data) = _addr.call(abi.encodeWithSignature("setVars(uint256)", amount));
+    }
+    function callVars(uint amount,address _addr) public{
+        (bool success,bytes memory data) = _addr.delegatecall(abi.encodeWithSignature("setVars(uint256)", amount));
+    }
+}
+call调用目标方法直接修改目标的方法的属性
+delegatecall 是A调用B资产执行c的代理方法，修改的B的属性值，这会B相当于目标方法，c成了代理方法。
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ~0.8.21;
+
+contract Pair{
+    address public factory;
+    address public token1;
+    address public token2;
+
+    constructor(){
+        factory = msg.sender;
+    }
+
+    function init(address _token1,address _token2) public{
+        require(factory == msg.sender);
+        token1 = _token1;
+        token2 = _token2;
+    }
+}
+
+
+contract pairFactory{
+
+    mapping(address=>mapping(address=>address)) public getPair;
+    address[] public allPair;
+    function createPair(address tokenA,address tokenB)public returns(address addPair) {
+        Pair pp  = new Pair();
+        pp.init(tokenA, tokenB);
+        addPair = address(pp); //生成一个当前初始化的地址 
+        allPair.push(addPair);
+        getPair[tokenA][tokenB] =  addPair; //修改map的key,value
+        getPair[tokenB][tokenA] = addPair;
+    }
+}
+
+
+contract pairCreate2{ 
+    mapping(address=>mapping(address=>address)) public getPair;
+    address[] public allPair;
+
+    function createPair2(address tokenA,address tokenB) public returns(address pairAdd){
+        //create2跟create不一样的地方是多了salt参数
+        (address token1,address token2) = tokenA>tokenB?(tokenB,tokenA):(tokenA,tokenB);
+        bytes32 salt = keccak256(abi.encodePacked(token1,token2));
+        Pair pp = new Pair{salt:salt}();
+        pp.init(tokenA,tokenB);
+        pairAdd = address(pp);
+        allPair.push(pairAdd);
+        getPair[tokenA][tokenB] = pairAdd;
+        getPair[tokenB][tokenA] = pairAdd;
+    }
+}
+create跟create2的区别就是create2需要sa
+
+
+### 2024.09.30
+contract deleteContract{
+    receive() external payable { 
+
+    }
+    event log(address addr);
+    uint public value=10;
+    constructor() payable {}
+    event log(string mesg);
+
+    function deletecontract() public{
+        emit log(msg.sender);
+        selfdestruct(payable (msg.sender));
+    }
+
+    function getBalance() external view returns(uint){
+        return address(this).balance;
+    }
+}
+删除合约，删除后eth会返回到调用方
+import "./deleteContray.sol";
+contract deployContract{
+    constructor() payable{}
+    event log(address addr,uint balance,uint value);
+    error callfailed();
+
+    struct DemoResult{
+       address addr;
+       uint balance;
+       uint value;
+    }
+
+    function getBalance() external view returns(uint){
+        return address(this).balance;
+    }
+    
+    //先给deleteContract发送ETH
+    function callEth(address payable addr,uint amount) public{
+        (bool success,bytes memory data) = addr.call{value:amount}("");
+        if(!success){
+            revert callfailed();
+        }
+    }
+    function deploycontract() public payable returns(DemoResult memory){
+       deleteContract ddl = new deleteContract{value:msg.value}();
+       DemoResult memory res = DemoResult({
+        addr:address(ddl),
+        balance: ddl.getBalance(),
+        value:ddl.value()
+       });
+       emit log(res.addr,res.balance,res.value); 
+       ddl.deletecontract();
+       return res;
+    }
+}
+先发送eth给deleteContract,在调用删除合约的方法，看etl是否会返回当前合约的balance
+
+contract encode{
+    uint x =10;
+    string name ='leiii';
+    uint[2] arr = [5,6];
+
+    function encoded() public  view returns(bytes memory){ //可以与合约进行交互
+        return abi.encode(x,name,arr);
+    }
+
+    function encodePacked()public view returns(bytes memory){ //节省空间但是不能与合约交互
+        return abi.encodePacked(x,name,arr);
+    }
+
+    function encodeWithSignature() public view returns(bytes memory){
+        return abi.encodeWithSignature("foo(uint256,string,uint256[2])",x,name,arr);
+    }
+
+    function encodeWithSelector() public view returns(bytes memory result){
+        result =  abi.encodeWithSelector(bytes4(keccak256("foo(uint256,string,uint256[2])")), x, name, arr);
+    }
+
+    function decode(bytes memory data) public pure returns(uint256 dx,string memory dname,uint256[2] memory adrr ){
+        (dx,dname,adrr) = abi.decode(data, (uint256,string,uint256[2]));
+    }
+}
+加密和解密常用的方法
+encode() 将参数都编译成32字节的数据在拼接到一起，可以调用其他的合约，安全性高，省资源
+encodePacked 常用来取hash值
+encodeWithSelector和encodeWithSignature一样，但是select在选择方法时更精准
+
+
+
+
+### 2024.10.01
+
+contract hashTest{
+
+    bytes32 msg2= keccak256(abi.encode(0xAA));
+    function hh(string memory name,address addr,uint num)public  pure returns(bytes32){
+        return keccak256(abi.encodePacked(name,addr,num));
+    }
+
+
+    function weak(address addr,uint256 num) public  view returns(bool){
+         return keccak256(abi.encodePacked(addr,num)) == msg2;
+    }
+
+    function strong(string memory str1,string memory str2) public pure returns(bool){
+        return keccak256(abi.encodePacked(str1)) ==keccak256(abi.encodePacked(str2));
+    }
+}
+hash常用来做数字唯一标识和安全加密
+
+### 2024.10.02
+contract selectorTest{
+    function noParam() external pure returns(bytes4){
+        return bytes4(keccak256("noParam()"));
+    }
+
+    function selecttor() public{
+        bytes memory data = abi.encodeWithSelector(bytes4(keccak256("noParam()")));
+        bytes memory data3 = abi.encodeWithSelector(0xc2cfaca2);
+       (bool success,bytes memory data2) = address(this).call(abi.encodeWithSelector(0xc2cfaca2));
+    }
+abi.encodeWithSelector 需要先算出被调用方法的hash值,上边结果是一致的
+
+
+### 2024.10.03   
+
+// SPDX-License-Identifier: MIT
+pragma solidity ~0.8.21;
+
+contract onlyEven{
+    constructor(uint a ){
+        require(a!=0,"invalid number");
+        assert(a!=1);
+    }
+
+    function onlyeven(uint b) external pure returns(bool){
+        require(b%2==0,"up,revert");
+        return true;
+    }
+}
+
+contract tryCatch{
+    event successEvent();
+    event catchEvent(string message);
+    event catchByte(bytes data);
+    onlyEven oe;
+    constructor(){
+        oe = new onlyEven(2);
+    }
+    function execute(uint num) public  returns(bool success){
+        try oe.onlyeven(num){
+            emit successEvent();
+            success = true;
+        }catch Error(string memory reason){
+            emit catchEvent(reason);
+        }
+    }
+    这个方法因为已经初始化构造器，所以只有successEvent和catchEvent会被释放
+    function exeuteNew(uint a) public returns(bool success){
+        try new onlyEven(a) returns(onlyEven oe){
+            emit successEvent();
+            success = oe.onlyeven(a);
+        }catch Error(string memory reason){
+            emit catchEvent(reason);
+        } catch(bytes memory data){
+            emit catchByte(data);
+        }
+    }
+}
+//new onlyEven会涉及到初始化构造器，在初始化构造器会校验0，1，assert返回的不是error类型，不会被Error捕获，会在catchBytes中
+    
 <!-- Content_END -->

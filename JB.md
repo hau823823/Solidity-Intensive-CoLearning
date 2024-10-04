@@ -292,4 +292,261 @@ contract array_struct {
 
 总结：对语法不熟悉，对数组修饰符之间的变量赋值影响理解不够深刻。
 
+### 2024.09.27
+
+学习了mapping的映射。
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+contract Map{
+
+    mapping (uint => address) public idAddress;
+    mapping (address => address) public swaPair;
+
+    // struct Student{
+    // uint256 id;
+    // uint256 score; 
+    // }
+
+    mapping (address => address) public student;
+
+    function writeMap (uint _Key, address _Value) public {
+        idAddress[_Key] = _Value;
+    }
+
+
+}
+
+### 2024.09.28
+学习了变量初始值的，以及如何使用delete方法恢复变量的初始值。
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+contract initValue {
+
+    bool public  _bool;
+    string public _string;
+    int public _int;
+    uint public _uint;
+    address public _address;
+
+    enum Action {Buy, Hold, Sell}
+
+    Action public _enum;
+
+    struct Student {
+        uint score;
+        uint id;
+    }
+
+    Student private _tom;
+
+    function fi() internal {}
+
+    function gi() external  {}
+
+    uint256 [5] _static;
+    uint [] _dynamic;
+
+    function test_bool() public {
+        _bool = true;
+    }
+
+    function call() external returns(bool )  {
+        this.test_bool();
+        return _bool;
+
+    }
+
+    function call_delete() external  {
+        _bool = this.call();
+        delete _bool;
+    }
+}
+
+![image](https://github.com/user-attachments/assets/f72bb525-5f6d-4143-9449-f1a69d8ed252)
+
+### 2024.09.29
+学习了常量constant和不可变量 immutable
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+contract test_Constant{
+    uint public constant CONSTANT_NUM = 10;
+    string public constant CONSTANT_STRING= "ini";
+    bool public constant live = true;
+    bytes public constant CONSTANT_BYTES="WTF";
+    address public constant CONSTANT_ADDRESS=address(1);
+    
+    uint public immutable IMMUTABLE_NUM = 10000;
+    address public immutable IMMUTABLE_ADDRESS;
+    uint public immutable IMMUTABLE_BLOCK;
+    uint public  immutable IMMUTABLE_TEST;
+
+    constructor(){
+        IMMUTABLE_ADDRESS = address(this); 
+        IMMUTABLE_NUM = 9999;
+        IMMUTABLE_TEST = test();
+    }
+
+    function test() public   pure  returns(uint return_test) {
+        return_test = 9;
+    }
+
+}
+
+![image](https://github.com/user-attachments/assets/86f4b104-dd02-4b3d-b8fe-ca99d662520d)
+
+### 2024.10.01
+学习了循环。
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+contract control_test{
+    uint constant phone_number = 88996958;
+
+    //if-else
+
+    function control(uint256 number) public pure returns(bool bo) {
+        if (number == 0) {
+            return true;
+        } else if (number == 4){
+            bo ==false;
+        } else  bo == false;
+    }
+
+    //for loop
+    function for_test() public  pure returns(uint result) {
+        uint sum = 0;
+        for (uint i = 0; i<=100; i++){
+        sum += i;
+        }
+        return sum;
+    }
+
+    //while
+    function while_test() public pure returns(uint sum_) {
+        uint i = 0;
+        uint sum = 0;
+        while (i < 100) {
+            sum += i;
+            i++;
+        }
+        sum_ = sum;
+    }
+
+    //do while loop
+
+    function do_while_test() public pure returns (uint do_while_result){
+        uint sum = 0;
+        uint i = 0;
+        do {
+            sum += i;
+        } while(i<100);
+        return sum;
+    }
+
+    function ternary_test(uint x, uint y) public pure returns(uint){
+        
+        return x > y ? x:y;
+    
+    }
+
+    //插入排序
+    function sort_test(uint[] memory array) public  pure  returns(uint256[] memory ) {
+        for (uint i =1; i < 100; i++){
+            uint temp = array[i];
+            uint j = i;
+            while (j > 0 && array[i] > array[j-1]) {
+                array[i] = array[j-1];
+                j--;
+            }
+            array[j] = temp;
+            
+        }
+        return array;
+    }
+
+    function test_insert_sort() public pure {
+        uint256[] memory array;
+        array[0] = 9;
+        array[1] = 6;
+        array[2] = 7;
+        array[3] = 9;
+        array[4] = 0;
+        sort_test(array);
+    }
+
+
+}
+![image](https://github.com/user-attachments/assets/1fdc7eef-f909-47db-bc5c-8b805a12bbda)
+
+### 2024.10.02
+1. 解决了上次遇到的局部变量中用memory声明的数组不能传入参数的问题。
+   //插入排序
+    function sort_test(uint[] memory array) public  pure  returns(uint[] memory ) {
+        for (uint i =1; i < array.length;i++){
+            uint temp = array[i];
+            uint j = i;
+            while ((j > 0) && (temp < array[j-1])) {
+                array[j] = array[j-1];
+                j--;
+            }
+            array[j] = temp;
+        }
+        return array;
+    }
+    function test_insert_sort() public pure returns(uint[] memory) {
+        uint[] memory array = new uint[](5);
+        array[0] = 9;
+        array[1] = 6;
+        array[2] = 7;
+        array[3] = 9;
+        array[4] = 0;
+        sort_test(array);
+        return array;
+    }
+   2. 练习了构造方法和modifier 修饰关键字
+      // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+contract test_contructor{
+    address public _address;
+
+    constructor (address inital_address) {
+        _address = inital_address;
+    }
+
+    modifier onlyOwner {
+        require(msg.sender == _address);// f检查调用者是否为owner
+            _; //if it is true, then continue
+    }
+
+    function changeOwner(address  change_address) external onlyOwner{
+        _address = change_address;
+    }
+}
+### 2024.10.03
+1. 了解了什么是事件以及如何定义。并在remix上进行测试。
+   // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+contract test_event{
+
+    mapping(address => uint256) public _balances;
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) external {
+        _balances[from] = 10000000; // 给转账地址一些初始代币
+
+    _balances[from] -=  amount; // from地址减去转账数量
+    _balances[to] += amount; // to地址加上转账数量
+
+    // 释放事件
+    emit Transfer(from, to, amount);
+    }
+}
+
+
 <!-- Content_END -->

@@ -379,17 +379,667 @@ function test() public pure returns (uint256) {
 
 ### 2024.09.27
 
+#### Chapter 12: Events
+
+- `event`
+  - Transaction logs stored by EVM
+  ```
+  event Transfer(address indexed from, address indexed to, uint256 amount);
+  ```
+  - Characteristics:
+    - Responsive: Applications can subscribe and listen to events through `RPC` and take action accordingly
+    - Economical: Store data in events is cheap (2,000 gas) each, store a new variable on-chain cost 20,000 gas
+  - `indexed` keyword marked to be stored at a special data structure known as `topics` and can easily queried by application
+  - Non-indexed parameters will be stored in the data section of the log, can be larger size and more complex data structures
+  - How to `emit` events
+  ```
+  function transfer(address _from, address _to, uint256 _amount) external {
+   ...
+   emit Transfer(_from, _to, _amount);
+  }
+  ```
+  - Topics
+    - Used to describe events
+    - Each event contains a maximum of 4 `topics`
+    - The first topic is the event hash, calculated as follows:
+    ```
+    keccak256("Transfer(address,address,uint256)")
+    // 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+    ```
+
 ### 2024.09.28
+
+#### Chapter 13: Inheritance
+
+- Rules
+
+  - `virtual`: Added if the functions of parent contract are expected/required to be overridden by children contract
+  - `override`: Added if the function of children contract wanted to override parent's function
+  - `virtual override`: Added if the function is overriding it parent's function and expect to be overriden by child contract
+  - `public` variable with `override` will also override it's `getter` function
+
+  ```
+  mapping(address => uint256) public override balanceOf;
+  ```
+
+**Simple inheritance**
+
+```
+contract Bird {
+  event Log(string action);
+
+  function fly() public virtual {
+    emit Log("Fly");
+  }
+
+  function bird() public virtual {
+    emit Log("Bird");
+  }
+}
+
+contract Rooster is Bird {
+  function fly() public virtual override {
+    emit Log("Jump");
+  }
+
+  function attack() public virtual {
+    emit Log("Attack");
+  }
+}
+```
+
+- `Bird` contract have 2 functions, `fly` and `bird` and 1 event `Log`
+- Although `Rooster` only have 2 function written `fly` and `attack`, due to inherit of `Bird`, `Rooster` have also `bird` function, and override the `fly` function which logging `"Jump"`.
+
+**Multiple inheritance**
+
+- Rules:
+  - Parent contract should be ordered by seniority, eg: `contract Chick is Bird, Rooster`
+  - If a function existed in multiple parent contracts, child contract required to override it too
+  ```
+  function fly() public virtual override(Bird, Rooster) // Chick contract
+  ```
+
+**Inheritance of modifiers**
+
+```
+contract Bird {
+  modifier onlyOwner() virtual {
+    require(msg.sender == owner);
+    _;
+  }
+  ...
+}
+
+contract Rooster is Bird{
+  function feed() public onlyOwner() pure {
+    ...
+  }
+}
+```
+
+- `Rooster` can use `onlyOwner` modifier because it inherit of `Bird`
+
+```
+modifier onlyOwner() override {
+ require(msg.sender != owner);
+ _;
+}
+```
+
+- `Rooster` override the `onlyOwner` modifier
+
+**Inheritance of constructors**
+
+```
+abstract contract Bird {
+  uint256 public height;
+
+  constructor(uint256 _height) {
+    height = _height;
+  }
+}
+```
+
+- Child contract to inherit the `constructor` of parent contract
+
+```
+contract Rooster is Bird {
+  constructor(uint256 \_height) Bird(\_height){}
+}
+```
+
+**Calling parent's function**
+
+- Direct calling
+
+```
+function attack() public virtual {
+  Bird.fly();
+}
+```
+
+- With `super` keyword
+
+```
+function attack() public virtual {
+  super.fly();
+}
+```
+
+- Using `super` will call the nearest inheritance function. If `super.fly()` call in `Chick` contract, due to the nature of order, it will call `Rooster`'s `fly` function but not `Bird`
+
+**Diamond inheritance**
+
+- A contract inheriting two or more parent contracts
+- Using `super` keyword on diamond inheritance chain, it will call the relevant function of each contract in the inheritance chain, not just nearest parent contract
+
+```
+/*
+     Bird
+     /  \
+Rooster Hen
+     \  /
+     Chick
+*/
+
+contract Bird {
+  event Log(string action);
+
+  function fly() public virtual {
+    emit Log("Bird is flying");
+  }
+}
+
+contract Rooster is Bird {
+  function fly() public virtual override {
+    emit Log("Rooster is flying");
+  }
+}
+
+contract Hen is Bird {
+  function fly() public virtual override {
+    emit Log("Hen is flying");
+  }
+}
+
+contract Chick is Rooster, Hen {
+  function fly() public virtual override {
+    super.fly();
+  }
+}
+```
+
+- Calling the `fly` function in `Chick` will also trigger `Hen`, `Rooster` and `Bird`'s `fly()`
 
 ### 2024.09.29
 
+#### Chapter 14: Abstract and Interface
+
+- Abstract Contract
+
+  - A special contract where it contain at least one unimplemented function, and the function must labeled with `virtual`
+
+  ```
+  abstract contract SomeIdea {
+   function someFeature(bytes calldata _data) public pure virtual returns (bool);
+  }
+  ```
+
+- Interface Contract
+
+  - Rules:
+    - Cannot contain state variables
+    - Cannot contain constructor
+    - Cannot inherit non-interface contracts
+    - All functions must be external and no content within it
+    - Contracts that inherit it must have all functions implemented
+  - Why implement interface?
+    - It provide `bytes4` selector for each function in the contract, and the function signatures (function `name` and `parameters`)
+    - It provide interface id
+  - Equivalent to contract `ABI` (Application Binary Interface), can be converted to each other
+
+  ```
+  interface IERC20 {
+   event Transfer(address indexed from, address indexed to, uint256 amount);
+
+   function balanceOf(address who) external view return (uint256);
+  }
+  ```
+
+  - Implementing `interface` can let contract interact with it without knowing it detail
+
+  ```
+  contract Staking {
+    IERC20 someToken = IERC20(0x1234....1234);
+    ...
+    function checkBalanceBeforeStake(uint256 _address) external {
+      if(someToken.balanceOf(_address) < minimumStake) {
+        // do something
+      }
+    }
+  }
+  ```
+
+#### Chapter 15: Errors
+
+- `error` & `revert`
+
+  - New feature introduce in Solidity `0.8`
+  - Recommended way to throw error
+
+  ```
+  error InsufficientBalance(address who);
+
+  function checkBalance(address _who) external {
+    if(balanceOf(_who) == 0) revert InsufficientBalance(_who);
+  }
+  ```
+
+- `require`
+
+  - Error handling prior to Solidity `0.8`
+  - Cost higher gas
+
+  ```
+  function checkBalance(address _who) external {
+    require(balanceOf(_who) == 0, "InsufficientBalance");
+  }
+  ```
+
+- `assert`
+  - Conditional statement, usually used for debugging purpose as it doesn't return error
+  ```
+  function checkBalance(address _who) external {
+    assert(balanceOf(_who) > 0);
+  }
+  ```
+
+End of WTF Solidity 101
+
 ### 2024.09.30
+
+#### Chapter 16: Function overloading
+
+Solidity allow function overloading, same function name but different parameters
+
+```
+function input(uint256 _number) external {
+  ...
+}
+
+function input(string memory _str) external {
+  ...
+}
+```
+
+Although both function share the same name, but due to different parameters, the functions will have different function signature/selector.
+
+**_Notes_**: `modifier` cannot be overloading like function
+
+**Argument matching**
+
+```
+function input(uint256 _number) external {
+  ...
+}
+
+function input(uint32 _number) external {
+
+}
+```
+
+The contract is able to compile, but when call data meet both function's parameter, for example: `50`, error prompted.
+
+#### Chapter 17: Library Contract
+
+`library` use to reduce code redundancy and gas usage.
+
+The different:
+
+- Cannot contain state variable
+- Cannot inherit other contract or to inherit by other contract
+- Cannot receive native currency, eg: ETH
+- Cannot be destroy
+
+- `public` and `private` functions in the library contract will trigger `delegatecall` when calling
+- `internal` functions won't trigger
+- `private` functions able to call by other functions within library contract
+
+Some commonly used library:
+
+- [String](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol)
+- [Address](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Address.sol)
+- [Arrays](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Arrays.sol)
+
+Usage
+
+```
+contract Lending {
+  using Strings for uint256; // using A for B;
+
+  function convert(uint256 _number) public pure returns (string memory) {
+    return _number.toHexString();
+  }
+}
+```
+
+or
+
+```
+contract Lending {
+  function convert(uint256 _number) public pure returns (string memory) {
+    return Strings.toHexString(_number); // call directly
+  }
+}
+```
+
+#### Chapter 18: Import
+
+`import` allow contract to refer content of another contracts, maximize reusability and contract security
+
+How to:
+
+```
+File
+├── Other.sol
+└── MyContract.sol
+
+/* ------------------ */
+import './Other.sol';
+
+contract MyContract {
+  ...
+}
+```
+
+or (Source URL)
+
+```
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Address.sol';
+```
+
+or (`npm`)
+
+```
+import '@openzeppelin/contracts/access/Ownable.sol';
+```
+
+or (Directive import)
+
+```
+import {Other} from './Other.sol';
+```
 
 ### 2024.10.01
 
+#### Chapter 19: Receive & Fallback
+
+Solidity have two special function, `receive()` and `fallback()`, can be used to:
+
+- Receive native currency like ETH
+- Fallback call from undefined function calling
+- `receive()` introduced after `0.6.x`
+
+`receive()`
+
+- Called when contract receive `ETH` directly via transfer, etc
+- Each contract can have maximum 1 `receive()` function
+
+```
+receive() external payable {
+  // do something
+}
+```
+
+- `receive()` doesn't need to include `function` keyword, must not contain `parameters` and return values
+- `receive()` not recommend to have complex logic, the default spendable gas for transfer/send ETH usually limit to `2300` only, complex computation in `receive()` might cause `Out of Gas` error.
+
+```
+event Received(address sender, uint256 amount);
+
+receive() external payable {
+  emit Received(msg.sender, msg.value);
+}
+```
+
+- `event` can be added into `receive()` function
+
+`fallback()`
+
+- Trigger when undefined function called, can also use to receive `ETH`
+
+```
+event FallbackTriggered(address sender, uint256 amount, bytes data);
+
+fallback() external payable {
+  emit FallbackTriggered(msg.sender, msg.value, msg.data);
+}
+```
+
+- `fallback()` doesn't need to include `function` keyword, must have visibility of `external`
+
+How it works
+
+```
+fallback() or receive()?
+        Receive ETH
+              |
+       msg.data empty？
+            /  \
+          Yes   No
+          /      \
+receive() exist?  fallback()
+        / \
+      Yes  No
+      /     \
+receive()   fallback()
+```
+
+- Contract without `receive()` or `payable fallback()` will not able to received `ETH`, transfer transaction will executed but failed
+
+#### Chapter 20: Transfer ETH
+
+There are 3 way to transfer `ETH` in contract
+
+- `call()` <- Recommended
+  - No gas limit
+  - Transaction will still executed even failed to call
+  - Have return values of `(bool, bytes memory)` which `bool` indicate calling failed or successful, `bytes` is data return
+- `transfer()`
+  - Gas limit `2300`, if recipient is contract and it's `fallback()` or `receive()` is complex, transfer will fail
+  - Transaction will revert if transfer failed
+- `send()`
+  - Gas limit `2300`, if recipient is contract and it's `fallback()` or `receive()` is complex, send will fail
+  - Transaction will still executed even failed to send, can capture with return `bool` value
+
+```
+function callTx(address payable _to) external payable {
+  (bool success, ) = _to.call{value: msg.value}("");
+  if(!success) {
+    revert CallFailed();
+  }
+}
+
+function transferETH(address payable _to) external payable {
+  _to.transfer(msg.value);
+}
+
+function sendETH(address payable _to) external payable {
+  bool success = _to.send(msg.value);
+  if(!success) {
+    revert SendFailed();
+  }
+}
+```
+
 ### 2024.10.02
 
+#### Chapter 21: Call to Other Contract
+
+In Solidity, one contract able to call another contract deployed or contract going to deploy where contract address to update later once deployed.
+
+```
+contract Target {
+  function echo() external pure returns (bool) {
+    return true;
+  }
+
+  function deposit() external payable {
+    ...
+  }
+}
+
+contract Source {
+  function callToAddress(address _target) external view returns (bool) {
+    return Target(_target).echo();
+  }
+
+  function callToContract(Target _target) external view returns (bool) {
+    return _target.echo();
+  }
+
+  function callToVariable(address _target) external view returns (bool) {
+    Target target = Target(_target);
+    return target.echo();
+  }
+
+  function callToPayable(address _target) external payable {
+    Target(_target).deposit{value: msg.value}("");
+  }
+}
+```
+
+#### Chapter 22: Call
+
+`call` is low level function of `address` variable. This function will return `(bool, bytes memory)`, which `bool` indicate calling failed or successful, `bytes` is data return.
+
+- `call` is recommended way to trigger `fallback` or `receive` when transferring `ETH`
+- However `call` is not recommended to use for calling another contract, especially to an unknown/malicious contract
+-
+
+```
+bytes someBytes = abi.encodeWithSignature("functionName(params, ...)", params, ...);
+
+someContract.call(someBytes); // Call without value (ETH)
+someContract.call{value: wei, gas: wei}(someBytes); // value and gas are optional
+
+// Call function with 1 ETH and capture return values
+(bool success, bytes memory data) = someContract.call{value: 1 ether}(
+  abi.encodeWithSignature("someFunction(uint256)", 100)
+);
+```
+
+- `call` will go to `fallback` if the function calling does not exist.
+
+#### Chapter 23: Delegatecall
+
+`delegatecall` is also a low level function of `address` variable.
+
+- delegate call able to forward the context of origin to another contract, eg
+
+```
+// call
+Address A -call-> Contract B -call-> Contract C
+===============================================
+                context=B            context=C
+                msg.sender=A         msg.sender=B
+                msg.value=A          msg.value=B
+
+// delegatecall
+Address A -call-> Contract B -delegatecall-> Contract C
+=======================================================
+                context=B                    context=B
+                msg.sender=A                 msg.sender=A
+                msg.value=A                  msg.value=A
+
+
+// Example
+(bool success, bytes memory data) = someContract.delegatecall(
+  abi.encodeWithSignature("someFunction(uint256)", 100)
+);
+```
+
+- Can specific `gas` but not `value`
+
+- When to use:
+  - Proxy contract: Which usually separate into State Contract and Logic Contract. All the functions of Logic Contract can call to State Contract through `delegatecall`. Thus Logic Contract can be update/replace when needed.
+  - [EIP-2535](https://eips.ethereum.org/EIPS/eip-2535): Also known as Diamonds, Multi-Facet Proxy. The smart contract is modular that can be extended after deployment.
+
 ### 2024.10.03
+
+#### Chapter 24: Contract Factory
+
+In Solidity, both EOA and Contract can also create/deploy new Contract. The most popular contract factory is Uniswap's `PairFactory`, which create a smart contract contain two tokens, eg: `USDT/PEPE`.
+
+- There are two ways to create new contract from a contract:
+  - CREATE
+  ```
+  Contract x = new Contract{value: _value}(params);
+  // Contract: Name of new contract
+  // x: New contract variable
+  // value: To transfer ETH into new contract if new contract's constructor is payable
+  // params: Parameters of new contract's constructor
+  ```
+  - CREATE2
+
+How address calculated by CREATE
+
+```
+new_contract_address = hash(creator_address, nonce);
+// creator_address can be EOA or contract
+```
+
+- `nonce` after the transaction count of EOA, or contract created count for contract, increase by 1 every tx/contract made
+- The address of new contract is hard to predict as nonce might change often
+
+#### Chapter 25: CREATE2
+
+How address calculated by CREATE2:
+
+```
+new_contract_address = hash("0xFF", creator_address, salt, initcode);
+// 0xFF: A constant to differentiate from CREATE
+// creator_address: The address of contract called CREATE2
+// salt: A bytes32 variable prefix by creator
+// initcode: New contract byte code with the constructor arguments and logic included
+```
+
+How to use:
+
+```
+Contract x = new Contract{salt: _salt, value: _value}(params);
+```
+
+Example WITH constructor parameters:
+
+```
+bytes32 salt = heccak256(abi.encodePacked(params...));
+
+NewContract nc = new NewContract{salt: salt}();
+
+address predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
+        bytes1(0xff),
+        address(this),
+        salt,
+        keccak256(type(NewContract).creationCode)
+        )))));
+```
+
+Example WITH constructor parameters:
+
+```
+bytes32 salt = heccak256(abi.encodePacked(params...));
+
+NewContract nc = new NewContract{salt: salt}(constructorParams...);
+
+address predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
+        bytes1(0xff),
+        address(this),
+        salt,
+        keccak256(abi.encodePacked(type(NewContract).creationCode, abi.encode(constructorParams...)))
+        )))));
+```
 
 ### 2024.10.04
 

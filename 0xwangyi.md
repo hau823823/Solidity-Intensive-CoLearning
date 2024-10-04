@@ -183,3 +183,112 @@ Solidity 101-12 事件event
 12 主题topics包括：哈希keccak256（事件的签名），from，to（除了哈希，topics还可以包括最多3个indexed参数）
 13 数据data：事件event中不带indexed的参数会被储存在data中（可以理解成事件event的值value）
 <!-- Content_END -->
+<!-- Content_START -->
+### 2024.09.27
+Day5
+Solidity 101-13 继承inheritance
+1 virtual：父合约中的函数，如果希望子合约重写，需要加上virtual关键字
+2 override：子合约重写了父合约中的函数，需要加上override关键字
+3 继承时要按辈分最高到最低的顺序排
+4 如果某一个函数在多个继承的合约里都存在，在子合约里必须重写，不然会报错
+5 重写在多个父合约中都重名的函数时，override关键字后面要加上所有父合约名字，例如override(Yeye, Baba)
+6 调用父合约函数-直接调用：子合约可以直接用父合约名.函数名()的方式来调用父合约函数，如Yeye.pop()
+7 调用父合约函数-super关键字：子合约可以利用super.函数名()来调用最近的父合约函数
+8 is关键字：表示继承（Child is Parent意思是Child合约继承了Parent合约的功能）
+<!-- Content_END -->
+<!-- Content_START -->
+### 2024.09.29
+Day7
+Solidity 102-17库合约Library Contracts
+1 using A for B：使用库合约A的函数来扩展类型B的功能（B类型的变量可以直接调用库合约A的函数）
+
+Solidity 102-18 import
+1 import导入
+2 npm ：Node Package Manager，随Node.js 一起发布的包管理工具
+3 Solidity中import的作用是：导入其他合约中的全局符号
+4 import导入文件的来源可以是：源文件网址，npm的目录，本地文件
+5 import导入文件中的全局符号可以单独指定其中的：合约，纯函数，结构体类型
+6 被导入文件中的全局符号想要被其他合约单独导入，应该：与合约并列在文件结构中
+7 导入的本地文件会被编译成字节码部署到链上
+8 在import 语句中使用*是为了导入一个Solidity 文件中的所有内容，并通过一个命名空间来访问这些内容
+<!-- Content_END -->
+<!-- Content_START -->
+### 2024.09.30
+Day8
+Solidity 102-19 接收ETH receive和fallback
+1 receive( ) external payable { } 注意⚠️：receive( )函数不能有任何参数，不能返回任何值，必须包含external和payable
+2 fallback( )函数会在调用合约不存在的函数时被触发，可以用于接收eth，也可以用于代理合约proxy contract
+3 fallback( ) external payable 也可以接收eth
+4 bytes data在solidity中表示原始的字节数据
+5 receive( )函数用于处理纯粹的eth发送
+6 fallback( )函数用于处理带有数据的调用或调用不存在的函数时接收eth
+7 Dapp = decentralized application 去中心化应用
+
+Solidity 102-20 发送ETH transfer, send, call
+1 call没有gas限制，最为灵活，提倡使用
+2 transfer有2300 gas限制，但发送失败会自动revert( )回滚交易，次优选则
+3 send有2300 gas限制，而且发送失败不会自动revert( )回滚交易，几乎没人用
+
+Solidity 102-21 调用其他合约
+1 Name(address).f( ) 解析：name是目标合约或接口名字，address是目标合约地址，f是要调用的目标合约中的函数
+2 安全性依赖合约设计
+3 UI = user interface 用户界面
+4 interface 接口 （关键字interface表示你定义了一个接口）
+<!-- Content_END -->
+<!-- Content_START -->
+### 2024.10.01
+Day9
+Solidity 102-22 call
+1 call 是address类型的低级成员函数，它用来与其他合约交互。它的返回值为(bool, bytes memory)，分别对应call是否成功以及目标函数的返回值
+2 ABI（Application Binary Interface，应用二进制接口） 是合约与外界（如用户或其他合约）之间交互的标准接口
+3 address类型主要内置函数有：transfer，send，call
+
+Solidity 102-23 delegatecall
+1 delegate是address类型的成员函数
+2 当用户A通过合约B来delegatecall合约C时，执行了C的函数，语境（上下文）是B，msg.sender和msg.value来自A，并且如果函数改变一些状态变量，产生的效果会作用于B的变量上（B call C，上下文为C；B delegatecall C，上下文为B；这就是call和delegate区别）
+3 delegatecall在调用合约时候：可以指定交易发送的gas，但不可以指定发送的eth数额
+4 使用delegatecall对当前合约和目标合约的状态变量要求是：变量名，变量类型，声明顺序都必须相同
+5 在代理合约中，储存所有相关的变量的是代理合约，储存所有函数的是逻辑合约，同时代理合约delegatecall逻辑合约
+6 代理合约Proxy Contracts
+<!-- Content_END -->
+<!-- Content_START -->
+### 2024.10.02
+Day10 
+Solidity 102-24 在合约中创建新合约
+1 solidity中新建合约的关键字是：new
+2 一个工厂合约PairFactory创建Pair合约的最大数量一般由PairFactory合约逻辑决定
+3 params是parameters缩写，参数
+
+Solidity 102-25 Create2
+1 Create2与Create的不同之处在于：Create2可以让合约地址独立于未来的事件
+2 nonce随机数，是number only used once缩写，防止攻击，确保每个操作唯一，并且通常递增
+3 salt是一个随机生成的值，增加随机性，避免生成相同输出而使用
+4 initcode 是合约的初始化代码，它包含合约的字节码和构造函数参数，用于部署时生成合约的最终逻辑
+
+Solidity 102-26 删除合约
+1 删除合约的命令，现在常用：selfdestruct
+2 坎昆升级后，合约依然存在，只是将合约包含的eth转移到指定地址，而合约依然能够调用
+<!-- Content_END -->
+<!-- Content_START -->
+### 2024.10.03
+Day11
+Solidity 102-27 ABI编码解码
+1 abi.decode 的逆向操作函数（反函数）是abi.encode
+2 abi.encode( )是 Solidity 提供的函数、用干对传入的变量讲行 ABI编码
+3 在以太坊中，数据必须编码成字节码才能和智能合约交互
+
+Solidity 102-28 Hash
+1 哈希函数hash function可以将任意长度的消息转化为一个固定长度的值，这个值也叫哈希hash
+2 最常用的哈希函数为：keccak-256
+3 好的哈希函数特性：单向性，灵敏性，高效性，均一性，抗碰撞性
+
+Solidity 102-29 函数选择器selector
+1 函数签名是函数名和参数类型的组合（如：transfer(address,uint256)）
+2 函数选择器selector和Method ID是通过对函数签名哈希后生成的前 4 个字节，用于标识函数；selector = method id
+3 每个合约中的函数都会有一个唯一的函数选择器（也就是Method ID），用于区分不同的函数
+
+Solidity 102-30 try-catch
+1 try-catch用于处理外部合约调用时的错误
+2 try模块在调用成功的情况下运行，而catch模块则在调用失败时运行
+3 revert() 是 Solidity 中的一个函数，用于显式触发异常，并且它会返回 bytes 类型的数据
+<!-- Content_END -->

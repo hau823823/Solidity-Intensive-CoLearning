@@ -129,4 +129,98 @@ timezone: Asia/Shanghai
 
 - Only applicable to Reference variable types: `array`, `struct` and `mapping`
 
+### 2024.09.28
+
+| Assignment type | Value change together? | 
+|---|---|
+| storage = storage | Y | 
+| storage = memory | N |
+| memory = storage | N | 
+| memory = memory | Y |
+
+**Key principle**: same data location then pass by reference
+
+### 2024.10.01
+
+#### Chapter 6: Array & Struct
+
+- Arrays
+   - Bytes array
+      - `bytes1[]` - dynamic array of single bytes, e.g. [0x01, 0x02, 0x03]
+      - `bytes` - cheaper, dynamic array of multiple bytes, e.g. 0x0102030405
+   - `memory` arrays
+      - array size fixed after creation, but can be dynamic at creation
+      - e.g. `uint[2] memory a = [uint(1), 2]` or `uint[] memory a = new uint[](2)`
+
+- struct
+   
+   ```solidity
+   struct Student{
+        uint256 id;
+        uint256 score; 
+   }
+
+   Student student;
+
+   function initStudent1() external{
+      Student storage _student = student; // assign a copy of student
+      _student.id = 11;
+      _student.score = 100;
+   }
+
+   // Method 2: Directly refer to the struct of the state variable
+   function initStudent2() external{
+      student.id = 1;
+      student.score = 80;
+   }
+   // Method 3: struct constructor
+   function initStudent3() external {
+      student = Student(3, 90);
+   }
+   
+   // Method 4: key value
+   function initStudent4() external {
+      student = Student({id: 4, score: 60});
+   }
+   ```
+
+### 2024.10.02
+
+#### Chapter 7: Mapping
+
+```solidity
+mapping(uint => address) public idToAddress;
+```
+
+- key type can't be struct, but value can be anything
+- must be `storage`
+- auto getter function for public variable
+- no length info beceause all unused keys have 0 value
+
+### 2024.10.03
+
+#### Chapter 8: Initial Value
+
+- boolean: `false`
+- string: `""`
+- int: `0`
+- uint: `0`
+- enum: first element in enumeration
+- address: `0x0000000000000000000000000000000000000000` (or `address(0)`)
+
+```solidity
+delete x; // change x to default value
+```
+
+### 2024.10.04
+
+#### Chapter 9: Constant
+
+- Constant
+   - value-typed / reference-typed variables
+   - must be initialized during declaration
+- Immutable
+   - value-typed only
+   - can be initialized during declaration or in the constructor
+
 <!-- Content_END -->
